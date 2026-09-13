@@ -316,16 +316,16 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Use fractional growth age for the WHO -> CDC boundary; 24.01 months is CDC.
-const babyAgeMonthsForStandard = useMemo((): number => {
-  if (!selectedBaby?.birthDate) return 0;
-  return calculateGrowthAgeMonths(selectedBaby.birthDate.toString(), new Date());
-}, [selectedBaby]);
+    // Use fractional growth age for the WHO -> CDC boundary; 24.01 months is CDC.
+  const babyAgeMonthsForStandard = useMemo((): number => {
+    if (!selectedBaby?.birthDate) return 0;
+    return calculateGrowthAgeMonths(selectedBaby.birthDate.toString(), new Date());
+  }, [selectedBaby]);
 
-const effectiveStandard = effectiveGrowthStandard(
-  settings?.growthChartStandard,
-  babyAgeMonthsForStandard,
-);
+  const effectiveStandard = effectiveGrowthStandard(
+    settings?.growthChartStandard,
+    babyAgeMonthsForStandard,
+  );
 
   // Zoom state
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -368,51 +368,51 @@ const effectiveStandard = effectiveGrowthStandard(
     fetchSettings();
   }, []);
 
-  // Fetch age-bounded growth reference segments when the metric or effective standard changes.
-useEffect(() => {
-  const fetchGrowthReferences = async () => {
-    if (!selectedBaby) return;
+    // Fetch age-bounded growth reference segments when the metric or effective standard changes.
+  useEffect(() => {
+    const fetchGrowthReferences = async () => {
+      if (!selectedBaby) return;
 
-    setIsLoading(true);
-    setError(null);
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const authToken = localStorage.getItem('authToken');
-      const sex = genderToCdcSex(selectedBaby.gender);
+      try {
+        const authToken = localStorage.getItem('authToken');
+        const sex = genderToCdcSex(selectedBaby.gender);
 
-      const response = await fetch(
-        `/api/cdc-growth-data?sex=${sex}&type=${measurementType}&standard=${effectiveStandard}`,
-        {
-          cache: 'no-store',
-          headers: {
-            'Authorization': authToken ? `Bearer ${authToken}` : '',
-            'Pragma': 'no-cache',
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Expires': '0',
+        const response = await fetch(
+          `/api/cdc-growth-data?sex=${sex}&type=${measurementType}&standard=${effectiveStandard}`,
+          {
+            cache: 'no-store',
+            headers: {
+              'Authorization': authToken ? `Bearer ${authToken}` : '',
+              'Pragma': 'no-cache',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Expires': '0',
+            },
           },
-        },
-      );
+        );
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setGrowthReferenceSegments(data.data?.segments || []);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setGrowthReferenceSegments(data.data?.segments || []);
+          } else {
+            setError(data.error || 'Failed to fetch growth reference data');
+          }
         } else {
-          setError(data.error || 'Failed to fetch growth reference data');
+          setError('Failed to fetch growth reference data');
         }
-      } else {
-        setError('Failed to fetch growth reference data');
+      } catch (err) {
+        console.error('Error fetching growth reference data:', err);
+        setError('Error fetching growth reference data');
+      } finally {
+        setIsLoading(false);
       }
-    } catch (err) {
-      console.error('Error fetching growth reference data:', err);
-      setError('Error fetching growth reference data');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
 
-  fetchGrowthReferences();
-}, [selectedBaby, measurementType, effectiveStandard]);
+    fetchGrowthReferences();
+  }, [selectedBaby, measurementType, effectiveStandard]);
 
   // Fetch baby measurements
   useEffect(() => {
@@ -454,101 +454,101 @@ useEffect(() => {
     fetchMeasurements();
   }, [selectedBaby, measurementType]);
 
-  // Process measurements with percentiles using the selected age-bounded reference segment.
-const measurementsWithPercentiles = useMemo((): MeasurementWithPercentile[] => {
-  if (!selectedBaby?.birthDate) return [];
+    // Process measurements with percentiles using the selected age-bounded reference segment.
+  const measurementsWithPercentiles = useMemo((): MeasurementWithPercentile[] => {
+    if (!selectedBaby?.birthDate) return [];
 
-  const displayUnit = getDisplayUnit(measurementType, settings);
+    const displayUnit = getDisplayUnit(measurementType, settings);
 
-  return measurements
-    .filter(m => mapMeasurementType(m.type) === measurementType)
-    .map(m => {
-      const ageMonths = calculateAgeInMonths(selectedBaby.birthDate!.toString(), m.date);
-      const cdcValue = convertToCdcUnit(m.value, m.unit, measurementType);
-      const resolvedReference = resolveGrowthReference(
-        growthReferenceSegments,
-        effectiveStandard,
-        measurementType,
-        ageMonths,
-      );
-      const percentile = resolvedReference
-        ? calculatePercentile(
-            cdcValue,
-            resolvedReference.row.l,
-            resolvedReference.row.m,
-            resolvedReference.row.s,
-          )
-        : undefined;
-      const displayValue = convertFromCdcToDisplayUnit(
-        cdcValue,
-        measurementType,
-        displayUnit,
-      );
+    return measurements
+      .filter(m => mapMeasurementType(m.type) === measurementType)
+      .map(m => {
+        const ageMonths = calculateAgeInMonths(selectedBaby.birthDate!.toString(), m.date);
+        const cdcValue = convertToCdcUnit(m.value, m.unit, measurementType);
+        const resolvedReference = resolveGrowthReference(
+          growthReferenceSegments,
+          effectiveStandard,
+          measurementType,
+          ageMonths,
+        );
+        const percentile = resolvedReference
+          ? calculatePercentile(
+              cdcValue,
+              resolvedReference.row.l,
+              resolvedReference.row.m,
+              resolvedReference.row.s,
+            )
+          : undefined;
+        const displayValue = convertFromCdcToDisplayUnit(
+          cdcValue,
+          measurementType,
+          displayUnit,
+        );
 
-      return {
-        ageMonths,
-        value: cdcValue,
-        displayValue,
-        date: m.date,
-        percentile,
-        unit: displayUnit,
-      };
-    })
-    .filter(m => m.ageMonths >= 0)
-    .sort((a, b) => a.ageMonths - b.ageMonths);
-}, [
-  growthReferenceSegments,
-  measurements,
-  measurementType,
-  selectedBaby,
-  settings,
-  effectiveStandard,
-]);
+        return {
+          ageMonths,
+          value: cdcValue,
+          displayValue,
+          date: m.date,
+          percentile,
+          unit: displayUnit,
+        };
+      })
+      .filter(m => m.ageMonths >= 0)
+      .sort((a, b) => a.ageMonths - b.ageMonths);
+  }, [
+    growthReferenceSegments,
+    measurements,
+    measurementType,
+    selectedBaby,
+    settings,
+    effectiveStandard,
+  ]);
 
-// Calculate baby's current age in months. Do not clamp to the infant reference range.
-const babyCurrentAgeMonths = useMemo((): number => {
-  if (!selectedBaby?.birthDate) return 12;
+  // Calculate baby's current age in months. Do not clamp to the infant reference range.
+  const babyCurrentAgeMonths = useMemo((): number => {
+    if (!selectedBaby?.birthDate) return 12;
 
-  const now = new Date();
-  const birth = new Date(selectedBaby.birthDate);
-  const years = now.getFullYear() - birth.getFullYear();
-  const months = now.getMonth() - birth.getMonth();
-  const days = now.getDate() - birth.getDate();
+    const now = new Date();
+    const birth = new Date(selectedBaby.birthDate);
+    const years = now.getFullYear() - birth.getFullYear();
+    const months = now.getMonth() - birth.getMonth();
+    const days = now.getDate() - birth.getDate();
 
-  let totalMonths = years * 12 + months;
-  if (days < 0) totalMonths -= 1;
+    let totalMonths = years * 12 + months;
+    if (days < 0) totalMonths -= 1;
 
-  return Math.max(3, Math.ceil(totalMonths + 1));
-}, [selectedBaby]);
+    return Math.max(3, Math.ceil(totalMonths + 1));
+  }, [selectedBaby]);
 
-// Combine bounded reference segments with exact-age measurements for chart rendering.
-const chartData = useMemo((): ChartDataPoint[] => {
-  if (!selectedBaby?.birthDate) return [];
+  // Combine bounded reference segments with exact-age measurements for chart rendering.
+  const chartData = useMemo((): ChartDataPoint[] => {
+    if (!selectedBaby?.birthDate) return [];
 
-  const displayUnit = getDisplayUnit(measurementType, settings);
-  return buildGrowthReferenceChartPoints({
-    segments: growthReferenceSegments,
-    standard: effectiveStandard,
-    measurement: measurementType,
-    maxReferenceAgeMonths: babyCurrentAgeMonths,
-    measurements: measurementsWithPercentiles.map(measurement => ({
-      ageMonths: measurement.ageMonths,
-      value: measurement.displayValue,
-      date: measurement.date,
-      percentile: measurement.percentile,
-    })),
-    convertReferenceValue: value =>
-      convertFromCdcToDisplayUnit(value, measurementType, displayUnit),
-  });
-}, [
-  growthReferenceSegments,
-  measurementsWithPercentiles,
-  measurementType,
-  selectedBaby,
-  settings,
-  babyCurrentAgeMonths,
-  effectiveStandard,
-]);
+    const displayUnit = getDisplayUnit(measurementType, settings);
+    return buildGrowthReferenceChartPoints({
+      segments: growthReferenceSegments,
+      standard: effectiveStandard,
+      measurement: measurementType,
+      maxReferenceAgeMonths: babyCurrentAgeMonths,
+      measurements: measurementsWithPercentiles.map(measurement => ({
+        ageMonths: measurement.ageMonths,
+        value: measurement.displayValue,
+        date: measurement.date,
+        percentile: measurement.percentile,
+      })),
+      convertReferenceValue: value =>
+        convertFromCdcToDisplayUnit(value, measurementType, displayUnit),
+    });
+  }, [
+    growthReferenceSegments,
+    measurementsWithPercentiles,
+    measurementType,
+    selectedBaby,
+    settings,
+    babyCurrentAgeMonths,
+    effectiveStandard,
+  ]);
 
   const unitLabel = getUnitLabel(measurementType, settings);
 

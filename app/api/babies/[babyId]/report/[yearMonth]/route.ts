@@ -282,11 +282,11 @@ async function handleGet(req: NextRequest, authContext: AuthResult): Promise<Nex
     } else {
       const [infantWeightRows, childWeightRows, infantLengthRows, statureRows, headRows] =
         await Promise.all([
-prisma.cdcWeightForAge.findMany({ where: growthWhere, ...growthOrder }),
-prisma.cdcChildWeightForAge.findMany({ where: growthWhere, ...growthOrder }),
-prisma.cdcLengthForAge.findMany({ where: growthWhere, ...growthOrder }),
-prisma.cdcStatureForAge.findMany({ where: growthWhere, ...growthOrder }),
-prisma.cdcHeadCircumferenceForAge.findMany({ where: growthWhere, ...growthOrder }),
+          prisma.cdcWeightForAge.findMany({ where: growthWhere, ...growthOrder }),
+          prisma.cdcChildWeightForAge.findMany({ where: growthWhere, ...growthOrder }),
+          prisma.cdcLengthForAge.findMany({ where: growthWhere, ...growthOrder }),
+          prisma.cdcStatureForAge.findMany({ where: growthWhere, ...growthOrder }),
+          prisma.cdcHeadCircumferenceForAge.findMany({ where: growthWhere, ...growthOrder }),
         ]);
       weightReferenceSegments = createGrowthReferenceSegments(
         'CDC',
@@ -335,15 +335,15 @@ prisma.cdcHeadCircumferenceForAge.findMany({ where: growthWhere, ...growthOrder 
       );
       if (resolvedReference) {
         const referenceValue = toCdcUnit(
-measurement.value,
-measurement.unit,
-growthMeasurement,
+          measurement.value,
+          measurement.unit,
+          growthMeasurement,
         );
         const z = calculateZScore(
-referenceValue,
-resolvedReference.row.l,
-resolvedReference.row.m,
-resolvedReference.row.s,
+          referenceValue,
+          resolvedReference.row.l,
+          resolvedReference.row.m,
+          resolvedReference.row.s,
         );
         percentile = zScoreToPercentile(z);
       }
@@ -371,12 +371,12 @@ resolvedReference.row.s,
       const prevStoredUnit = (prevMeasurement.unit || '').toUpperCase().trim();
       if (prevStoredUnit !== expectedUnit && prevStoredUnit !== '') {
         const prevReferenceValue = toCdcUnit(
-prevMeasurement.value,
-prevMeasurement.unit,
-growthMeasurement,
+          prevMeasurement.value,
+          prevMeasurement.unit,
+          growthMeasurement,
         );
         prevDisplayValue =
-Math.round(fromCdcUnit(prevReferenceValue, growthMeasurement) * 100) / 100;
+          Math.round(fromCdcUnit(prevReferenceValue, growthMeasurement) * 100) / 100;
       } else {
         prevDisplayValue = prevMeasurement.value;
       }
@@ -448,12 +448,14 @@ Math.round(fromCdcUnit(prevReferenceValue, growthMeasurement) * 100) / 100;
         measurementAgeMonths,
       );
       const percentile = resolvedReference
-        ? zScoreToPercentile(calculateZScore(
-  referenceValue,
-  resolvedReference.row.l,
-  resolvedReference.row.m,
-  resolvedReference.row.s,
-))
+        ? zScoreToPercentile(
+            calculateZScore(
+              referenceValue,
+              resolvedReference.row.l,
+              resolvedReference.row.m,
+              resolvedReference.row.s,
+            ),
+          )
         : undefined;
 
       return [{
