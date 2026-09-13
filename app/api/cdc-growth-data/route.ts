@@ -2,51 +2,79 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../db';
 import { ApiResponse } from '../types';
 import { withAuthContext, AuthResult } from '../utils/auth';
-import { isValidGrowthStandard } from '@/src/utils/growthStandard';
+import {
+  isValidGrowthStandard,
+  type GrowthStandard,
+} from '@/src/utils/growthStandard';
+import type {
+  GrowthReferenceMeasurement,
+  GrowthReferenceRow,
+  GrowthReferenceSegment,
+} from '@/src/utils/growthReferences';
 
-// CDC growth data record type
-export interface CdcGrowthDataRecord {
-  sex: number;
-  ageMonths: number;
-  l: number;
-  m: number;
-  s: number;
-  p3: number;
-  p5: number;
-  p10: number;
-  p25: number;
-  p50: number;
-  p75: number;
-  p90: number;
-  p95: number;
-  p97: number;
+export interface GrowthReferenceDataResponse {
+  standard: GrowthStandard;
+  measurementType: GrowthReferenceMeasurement;
+  segments: GrowthReferenceSegment[];
 }
 
-type MeasurementTypeParam = 'weight' | 'length' | 'head_circumference';
+const MEASUREMENT_TYPES: readonly GrowthReferenceMeasurement[] = [
+  'weight',
+  'length',
+  'head_circumference',
+];
+
+function isValidMeasurementType(value: string | null): value is GrowthReferenceMeasurement {
+  return value !== null && MEASUREMENT_TYPES.includes(value as GrowthReferenceMeasurement);
+}
+
+function createSegment(
+  id: string,
+  standard: GrowthStandard,
+  measurement: GrowthReferenceMeasurement,
+  effectiveFromMonths: number,
+  effectiveToMonths: number | null,
+  rows: GrowthReferenceRow[],
+): GrowthReferenceSegment {
+  return {
+    id,
+    standard,
+    measurement,
+    effectiveFromMonths,
+    effectiveToMonths,
+    rows,
+  };
+}
 
 async function handleGet(req: NextRequest, authContext: AuthResult) {
   try {
     const { familyId: userFamilyId } = authContext;
     if (!userFamilyId) {
-      return NextResponse.json<ApiResponse<null>>({ success: false, error: 'User is not associated with a family.' }, { status: 403 });
-    }
-
-    const { searchParams } = new URL(req.url);
-    const sex = searchParams.get('sex'); // 1 = Male, 2 = Female
-    const measurementType = searchParams.get('type') as MeasurementTypeParam | null; // weight, length, head_circumference
-    const standard = (searchParams.get('standard') || 'CDC').toUpperCase(); // 'CDC' or 'WHO'
-
-    if (!isValidGrowthStandard(standard)) {
       return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'standard must be CDC or WHO' },
-        { status: 400 }
+        { success: false, error: 'User is not associated with a family.' },
+        { status: 403 },
       );
     }
 
-    if (!sex || !measurementType) {
+    const { searchParams } = new URL(req.url);
+    const sex = searchParams.get('sex');
+    const measurementTypeParam = searchParams.get('type');
+    const standardParam = (searchParams.get('standard') || 'CDC').toUpperCase();
+
+    if (!isValidGrowthStandard(standardParam)) {
       return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'sex and type parameters are required' },
-        { status: 400 }
+        { success: false, error: 'standard must be CDC or WHO' },
+        { status: 400 },
+      );
+    }
+
+    if (!sex || !isValidMeasurementType(measurementTypeParam)) {
+      return NextResponse.json<ApiResponse<null>>(
+        {
+          success: false,
+          error: 'sex and a valid type (weight, length, or head_circumference) are required',
+        },
+        { status: 400 },
       );
     }
 
@@ -54,12 +82,13 @@ async function handleGet(req: NextRequest, authContext: AuthResult) {
     if (sexNum !== 1 && sexNum !== 2) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'sex must be 1 (Male) or 2 (Female)' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
+    const standard = standardParam;
+    const measurementType = measurementTypeParam;
     const selectFields = {
-      sex: true,
       ageMonths: true,
       l: true,
       m: true,
@@ -73,83 +102,119 @@ async function handleGet(req: NextRequest, authContext: AuthResult) {
       p90: true,
       p95: true,
       p97: true,
-    };
+    } as const;
 
-    let data: CdcGrowthDataRecord[];
+    let segments: GrowthReferenceSegment[];
 
     if (standard === 'WHO') {
+      let rows: GrowthReferenceRow[];
       switch (measurementType) {
         case 'weight':
-          data = await prisma.whoWeightForAge.findMany({
+          rows = await prisma.whoWeightForAge.findMany({
             where: { sex: sexNum },
             orderBy: { ageMonths: 'asc' },
             select: selectFields,
           });
           break;
         case 'length':
-          data = await prisma.whoLengthForAge.findMany({
+          rows = await prisma.whoLengthForAge.findMany({
             where: { sex: sexNum },
             orderBy: { ageMonths: 'asc' },
             select: selectFields,
           });
           break;
         case 'head_circumference':
-          data = await prisma.whoHeadCircumferenceForAge.findMany({
+          rows = await prisma.whoHeadCircumferenceForAge.findMany({
             where: { sex: sexNum },
             orderBy: { ageMonths: 'asc' },
             select: selectFields,
           });
           break;
-        default:
-          return NextResponse.json<ApiResponse<null>>(
-            { success: false, error: 'Invalid measurement type. Use: weight, length, or head_circumference' },
-            { status: 400 }
-          );
       }
+
+      segments = [
+        createSegment(`who-${measurementType}`, 'WHO', measurementType, 0, null, rows),
+      ];
     } else {
       switch (measurementType) {
-        case 'weight':
-          data = await prisma.cdcWeightForAge.findMany({
+        case 'weight': {
+          const [infantRows, childRows] = await Promise.all([
+            prisma.cdcWeightForAge.findMany({
+              where: { sex: sexNum },
+              orderBy: { ageMonths: 'asc' },
+              select: selectFields,
+            }),
+            prisma.cdcChildWeightForAge.findMany({
+              where: { sex: sexNum },
+              orderBy: { ageMonths: 'asc' },
+              select: selectFields,
+            }),
+          ]);
+          segments = [
+            createSegment('cdc-infant-weight', 'CDC', 'weight', 0, 24, infantRows),
+            createSegment('cdc-child-weight', 'CDC', 'weight', 24, null, childRows),
+          ];
+          break;
+        }
+        case 'length': {
+          const [infantRows, childRows] = await Promise.all([
+            prisma.cdcLengthForAge.findMany({
+              where: { sex: sexNum },
+              orderBy: { ageMonths: 'asc' },
+              select: selectFields,
+            }),
+            prisma.cdcStatureForAge.findMany({
+              where: { sex: sexNum },
+              orderBy: { ageMonths: 'asc' },
+              select: selectFields,
+            }),
+          ]);
+          segments = [
+            createSegment('cdc-infant-length', 'CDC', 'length', 0, 24, infantRows),
+            createSegment('cdc-child-stature', 'CDC', 'length', 24, null, childRows),
+          ];
+          break;
+        }
+        case 'head_circumference': {
+          const rows = await prisma.cdcHeadCircumferenceForAge.findMany({
             where: { sex: sexNum },
             orderBy: { ageMonths: 'asc' },
             select: selectFields,
           });
+          segments = [
+            createSegment(
+              'cdc-infant-head-circumference',
+              'CDC',
+              'head_circumference',
+              0,
+              null,
+              rows,
+            ),
+          ];
           break;
-        case 'length':
-          data = await prisma.cdcLengthForAge.findMany({
-            where: { sex: sexNum },
-            orderBy: { ageMonths: 'asc' },
-            select: selectFields,
-          });
-          break;
-        case 'head_circumference':
-          data = await prisma.cdcHeadCircumferenceForAge.findMany({
-            where: { sex: sexNum },
-            orderBy: { ageMonths: 'asc' },
-            select: selectFields,
-          });
-          break;
-        default:
-          return NextResponse.json<ApiResponse<null>>(
-            { success: false, error: 'Invalid measurement type. Use: weight, length, or head_circumference' },
-            { status: 400 }
-          );
+        }
       }
     }
 
-    return NextResponse.json<ApiResponse<CdcGrowthDataRecord[]>>({
-      success: true,
-      data,
-    }, {
-      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
-    });
+    return NextResponse.json<ApiResponse<GrowthReferenceDataResponse>>(
+      {
+        success: true,
+        data: { standard, measurementType, segments },
+      },
+      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } },
+    );
   } catch (error) {
-    console.error('Error fetching CDC growth data:', error);
+    console.error('Error fetching growth reference data:', error);
     return NextResponse.json<ApiResponse<null>>(
-      { success: false, error: 'Failed to fetch CDC growth data' },
-      { status: 500 }
+      { success: false, error: 'Failed to fetch growth reference data' },
+      { status: 500 },
     );
   }
 }
 
-export const GET = withAuthContext(handleGet as (req: NextRequest, authContext: AuthResult) => Promise<NextResponse<ApiResponse<any>>>);
+export const GET = withAuthContext(
+  handleGet as (
+    req: NextRequest,
+    authContext: AuthResult,
+  ) => Promise<NextResponse<ApiResponse<any>>>,
+);

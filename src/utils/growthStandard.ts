@@ -1,10 +1,11 @@
 /**
  * Pure policy for choosing a growth-chart reference standard.
  *
- * WHO reference data covers 0–24 months; CDC covers 0–36 months. When a family
- * selects WHO but the relevant baby age exceeds 24 months, the whole chart/report
- * falls back to CDC (matching CDC clinical guidance: WHO for 0–24mo, CDC for 2+ years).
- * There is no mid-chart mixing — one standard per chart, always labeled truthfully.
+ * WHO reference data covers 0–24 months. When a family selects WHO but the
+ * relevant baby age exceeds 24 months, the whole chart/report falls back to CDC
+ * (matching CDC clinical guidance: WHO for 0–24mo, CDC for 2+ years). The chart
+ * still uses one standard at a time; CDC may internally select age-appropriate
+ * infant or 2–20 year reference segments without mixing standards.
  */
 
 export const WHO_MAX_AGE_MONTHS = 24;
