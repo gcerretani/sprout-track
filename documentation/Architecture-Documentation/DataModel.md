@@ -208,7 +208,7 @@ These three models are **not** scoped to a family — they have no `familyId`. T
 
 ### ShortLink
 System-admin URL shortener destinations:
-- `slug` — 8 hex-char unique identifier (e.g. "a1b2c3d4"), used in the public `/go/{slug}` redirect path
+- `slug` — 8 hex-char unique identifier (e.g. `a1b2c3d4`), used in the public `/go/{slug}` redirect path
 - `url` — absolute http/https destination
 - `name`, `description`, `tag` (campaign grouping, indexed)
 - `enabled` — soft-disable flag (disabled links redirect to `/`)
