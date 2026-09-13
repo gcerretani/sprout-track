@@ -6,10 +6,11 @@ import {
   isValidGrowthStandard,
   type GrowthStandard,
 } from '@/src/utils/growthStandard';
-import type {
-  GrowthReferenceMeasurement,
-  GrowthReferenceRow,
-  GrowthReferenceSegment,
+import {
+  CDC_CHILD_REFERENCE_START_MONTHS,
+  type GrowthReferenceMeasurement,
+  type GrowthReferenceRow,
+  type GrowthReferenceSegment,
 } from '@/src/utils/growthReferences';
 
 export interface GrowthReferenceDataResponse {
@@ -151,8 +152,8 @@ async function handleGet(req: NextRequest, authContext: AuthResult) {
             }),
           ]);
           segments = [
-            createSegment('cdc-infant-weight', 'CDC', 'weight', 0, 24, infantRows),
-            createSegment('cdc-child-weight', 'CDC', 'weight', 24, null, childRows),
+            createSegment('cdc-infant-weight', 'CDC', 'weight', 0, CDC_CHILD_REFERENCE_START_MONTHS, infantRows),
+            createSegment('cdc-child-weight', 'CDC', 'weight', CDC_CHILD_REFERENCE_START_MONTHS, null, childRows),
           ];
           break;
         }
@@ -170,8 +171,8 @@ async function handleGet(req: NextRequest, authContext: AuthResult) {
             }),
           ]);
           segments = [
-            createSegment('cdc-infant-length', 'CDC', 'length', 0, 24, infantRows),
-            createSegment('cdc-child-stature', 'CDC', 'length', 24, null, childRows),
+            createSegment('cdc-infant-length', 'CDC', 'length', 0, CDC_CHILD_REFERENCE_START_MONTHS, infantRows),
+            createSegment('cdc-child-stature', 'CDC', 'length', CDC_CHILD_REFERENCE_START_MONTHS, null, childRows),
           ];
           break;
         }

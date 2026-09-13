@@ -1,5 +1,7 @@
 import type { GrowthStandard } from './growthStandard';
 
+export const CDC_CHILD_REFERENCE_START_MONTHS = 24;
+
 export type GrowthReferenceMeasurement = 'weight' | 'length' | 'head_circumference';
 
 export interface GrowthReferenceRow {

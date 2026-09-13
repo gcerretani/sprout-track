@@ -62,13 +62,16 @@ function MetricCard({ label, metric }: { label: string; metric: GrowthMetric | n
       </div>
     );
   }
-  const ordinal = metric.percentile === 1 ? 'st' : metric.percentile === 2 ? 'nd' : metric.percentile === 3 ? 'rd' : 'th';
-  const pctText = `${metric.percentile}${t(ordinal)} ${t('percentile')} ${formatTrend(metric.trend)}`;
+  const pctText = metric.percentile !== null
+  ? `${metric.percentile}${t(metric.percentile === 1 ? 'st' : metric.percentile === 2 ? 'nd' : metric.percentile === 3 ? 'rd' : 'th')} ${t('percentile')} ${formatTrend(metric.trend)}`
+  : null;
   return (
     <div className={cn(s.metricCard, 'report-card-metric')}>
       <p className={cn(s.metricLabel, 'report-card-metric-label')}>{label}</p>
       <p className={cn(s.metricValue, 'report-card-metric-value')}>{metric.value} {metric.unit}</p>
-      <p className={cn(s.metricSub, s.metricSubPositive, 'report-card-metric-sub-positive')}>{pctText}</p>
+      {pctText && (
+        <p className={cn(s.metricSub, s.metricSubPositive, 'report-card-metric-sub-positive')}>{pctText}</p>
+      )}
     </div>
   );
 }
@@ -79,7 +82,7 @@ function GrowthChartTooltip({ active, payload, label, babyName, unit, t }: any) 
   if (!active || !payload?.length) return null;
 
   const measurementPoint = payload.find((p: any) => p.dataKey === 'measurement');
-  const dataPoint = payload[0]?.payload as any;
+  const dataPoint = (measurementPoint?.payload ?? payload[0]?.payload) as any;
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 report-card-chart-tooltip" style={{ fontSize: 12 }}>
@@ -91,8 +94,6 @@ function GrowthChartTooltip({ active, payload, label, babyName, unit, t }: any) 
         const pctEntries = payload
           .filter((p: any) => p.dataKey !== 'measurement' && p.dataKey !== 'percentile' && p.value != null)
           .sort((a: any, b: any) => (a.value ?? 0) - (b.value ?? 0));
-
-        if (!pctEntries.length) return null;
 
         const measValue = measurementPoint.value as number;
         const measPercentile = dataPoint?.percentile;
@@ -119,13 +120,12 @@ function GrowthChartTooltip({ active, payload, label, babyName, unit, t }: any) 
           );
         }
 
-        if (measPercentile !== undefined) {
-          lines.push(
-            <p key="meas" className="font-semibold text-orange-600">
-              {Number(measPercentile).toFixed(1)}%: {formatChartValue(Number(measValue), unit || '')}
-            </p>
-          );
-        }
+        lines.push(
+          <p key="meas" className="font-semibold text-orange-600">
+            {measPercentile !== undefined ? `${Number(measPercentile).toFixed(1)}%: ` : ''}
+            {formatChartValue(Number(measValue), unit || '')}
+          </p>
+        );
 
         if (lower) {
           lines.push(
