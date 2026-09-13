@@ -35,6 +35,11 @@ export interface GrowthReferenceSegment {
   measurement: GrowthReferenceMeasurement;
   effectiveFromMonths: number;
   effectiveToMonths: number | null;
+  /**
+   * Whether chart percentile lines must break before a successor segment.
+   * Leave false/undefined when adjacent datasets represent a continuous curve.
+   */
+  breakAfter?: boolean;
   rows: readonly GrowthReferenceRow[];
 }
 
@@ -110,6 +115,7 @@ export function createGrowthReferenceSegments(
       measurement,
       effectiveFromMonths: 0,
       effectiveToMonths: null,
+      breakAfter: false,
       rows: primaryRows,
     }];
   }
@@ -122,6 +128,7 @@ export function createGrowthReferenceSegments(
         measurement,
         effectiveFromMonths: 0,
         effectiveToMonths: CDC_CHILD_REFERENCE_START_MONTHS,
+        breakAfter: false,
         rows: primaryRows,
       },
       {
@@ -130,6 +137,7 @@ export function createGrowthReferenceSegments(
         measurement,
         effectiveFromMonths: CDC_CHILD_REFERENCE_START_MONTHS,
         effectiveToMonths: null,
+        breakAfter: false,
         rows: childRows,
       },
     ];
@@ -143,6 +151,7 @@ export function createGrowthReferenceSegments(
         measurement,
         effectiveFromMonths: 0,
         effectiveToMonths: CDC_CHILD_REFERENCE_START_MONTHS,
+        breakAfter: true,
         rows: primaryRows,
       },
       {
@@ -151,6 +160,7 @@ export function createGrowthReferenceSegments(
         measurement,
         effectiveFromMonths: CDC_CHILD_REFERENCE_START_MONTHS,
         effectiveToMonths: null,
+        breakAfter: false,
         rows: childRows,
       },
     ];
@@ -162,6 +172,7 @@ export function createGrowthReferenceSegments(
     measurement,
     effectiveFromMonths: 0,
     effectiveToMonths: null,
+    breakAfter: false,
     rows: primaryRows,
   }];
 }
@@ -271,10 +282,11 @@ function referenceRowToChartPoint(
 }
 
 /**
- * Assemble chart points without visually joining distinct reference datasets.
- * A synthetic point immediately before a policy boundary lets the outgoing
- * segment reach the boundary, then an undefined point at the boundary breaks
- * the percentile lines before the successor segment starts.
+ * Assemble chart points while preserving explicit transition semantics.
+ * Continuous adjacent datasets may be joined directly. For a segment marked
+ * `breakAfter`, a synthetic point immediately before the boundary lets the
+ * outgoing curve reach its limit, then an undefined boundary point breaks the
+ * percentile lines before the successor segment starts.
  *
  * Measurements always keep their exact age and remain visible even when no
  * reference exists for that age.
@@ -325,7 +337,12 @@ export function buildGrowthReferenceChartPoints(options: {
       boundary !== null
       && (maxReferenceAgeMonths === null || boundary <= maxReferenceAgeMonths);
 
-    if (boundary !== null && hasSuccessorAtBoundary && boundaryIsVisible) {
+    if (
+      boundary !== null
+      && segment.breakAfter === true
+      && hasSuccessorAtBoundary
+      && boundaryIsVisible
+    ) {
       const outgoingAge = boundary - REFERENCE_BOUNDARY_EPSILON_MONTHS;
       const outgoingRow = interpolateGrowthReferenceRow(segment.rows, outgoingAge);
       if (outgoingRow) {
