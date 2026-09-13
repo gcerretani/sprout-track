@@ -229,24 +229,30 @@ async function handleGet(req: NextRequest, authContext: AuthResult): Promise<Nex
   const sex = baby.gender === 'MALE' ? 1 : baby.gender === 'FEMALE' ? 2 : null;
   const maxAgeMonths = Math.ceil(calculateGrowthAgeMonths(birthDate, endOfMonth));
 
+  // Fetch family settings for display units and the selected growth standard
   const familySettings = await prisma.settings.findFirst({
     where: { familyId: userFamilyId },
     select: { defaultWeightUnit: true, defaultHeightUnit: true, growthChartStandard: true },
   });
   const displayWeightUnit = (familySettings?.defaultWeightUnit || 'LB').toUpperCase();
   const displayHeightUnit = (familySettings?.defaultHeightUnit || 'IN').toUpperCase();
+
+  // Choose the standard for the whole report from the baby's age at the end of the
+  // report month; WHO past 24 months automatically falls back to CDC.
   const reportAgeMonths = calculateGrowthAgeMonths(birthDate, endOfMonth);
   const growthStandard = effectiveGrowthStandard(
     familySettings?.growthChartStandard,
     reportAgeMonths,
   );
 
+  // Unit conversion helpers (weight math shared with GrowthChart via weightUnits)
   function toCdcUnit(
     value: number,
     unit: string,
     type: GrowthReferenceMeasurement,
   ): number {
     if (type === 'weight') return toCdcWeightKg(value, unit);
+    // length / head_circumference — growth references use cm
     const normalizedUnit = (unit || '').toUpperCase().trim();
     if (normalizedUnit === 'IN') return value * 2.54;
     return value;
@@ -254,10 +260,12 @@ async function handleGet(req: NextRequest, authContext: AuthResult): Promise<Nex
 
   function fromCdcUnit(value: number, type: GrowthReferenceMeasurement): number {
     if (type === 'weight') return fromCdcWeightKg(value, displayWeightUnit);
+    // length / head — convert from cm to display unit
     if (displayHeightUnit === 'IN') return value / 2.54;
     return value;
   }
 
+  // Pre-fetch all growth reference rows for all 3 measurement types (for both metrics and charts)
   const growthWhere = sex ? { sex } : undefined;
   const growthOrder = { orderBy: { ageMonths: 'asc' } as const };
 
@@ -327,6 +335,7 @@ async function handleGet(req: NextRequest, authContext: AuthResult): Promise<Nex
 
     let percentile: number | null = null;
     if (sex) {
+      // Resolve the bounded reference row at the measurement's exact age.
       const resolvedReference = resolveGrowthReference(
         getGrowthReferenceSegments(growthMeasurement),
         growthStandard,
@@ -334,6 +343,7 @@ async function handleGet(req: NextRequest, authContext: AuthResult): Promise<Nex
         babyAgeMonths,
       );
       if (resolvedReference) {
+        // Convert the measurement value to reference units (kg/cm) before calculating Z-score.
         const referenceValue = toCdcUnit(
           measurement.value,
           measurement.unit,
@@ -349,6 +359,7 @@ async function handleGet(req: NextRequest, authContext: AuthResult): Promise<Nex
       }
     }
 
+    // Convert measurement to display unit for consistency with the chart
     const expectedUnit = growthMeasurement === 'weight'
       ? displayWeightUnit
       : displayHeightUnit;
@@ -357,6 +368,7 @@ async function handleGet(req: NextRequest, authContext: AuthResult): Promise<Nex
     let displayUnit = measurement.unit;
 
     if (storedUnit !== expectedUnit && storedUnit !== '') {
+      // Convert: stored unit → reference unit → display unit
       const referenceValue = toCdcUnit(
         measurement.value,
         measurement.unit,
@@ -366,6 +378,7 @@ async function handleGet(req: NextRequest, authContext: AuthResult): Promise<Nex
       displayUnit = expectedUnit.toLowerCase();
     }
 
+    // Same conversion for prev measurement to get accurate trend
     let prevDisplayValue: number | null = null;
     if (prevMeasurement) {
       const prevStoredUnit = (prevMeasurement.unit || '').toUpperCase().trim();
@@ -398,6 +411,8 @@ async function handleGet(req: NextRequest, authContext: AuthResult): Promise<Nex
     'head_circumference',
   );
 
+  // Growth velocity (weight delta — in display units)
+  // Convert both months' weights to display unit for an accurate delta
   let velocity: { value: number; unit: string } | null = null;
   if (weightThisMonth && weightPrevMonth) {
     const curCdc = toCdcUnit(weightThisMonth.value, weightThisMonth.unit, 'weight');
@@ -410,6 +425,7 @@ async function handleGet(req: NextRequest, authContext: AuthResult): Promise<Nex
     };
   }
 
+  // Build chart data for all 3 measurement types using already-fetched reference rows
   function buildChartData(
     measurements: typeof allWeights,
     growthMeasurement: GrowthReferenceMeasurement,
@@ -466,6 +482,7 @@ async function handleGet(req: NextRequest, authContext: AuthResult): Promise<Nex
       }];
     });
 
+    // Shared builder keeps exact-age measurements and bounded transitions aligned with GrowthChart.
     const referencePoints = buildGrowthReferenceChartPoints({
       segments: referenceSegments,
       standard: growthStandard,
