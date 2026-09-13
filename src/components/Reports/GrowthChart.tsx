@@ -464,13 +464,19 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
       .filter(m => mapMeasurementType(m.type) === measurementType)
       .map(m => {
         const ageMonths = calculateAgeInMonths(selectedBaby.birthDate!.toString(), m.date);
+
+        // Convert to reference units (kg/cm) for percentile calculation.
         const cdcValue = convertToCdcUnit(m.value, m.unit, measurementType);
+
+        // Resolve the age-bounded reference row at the exact measurement age.
         const resolvedReference = resolveGrowthReference(
           growthReferenceSegments,
           effectiveStandard,
           measurementType,
           ageMonths,
         );
+
+        // Calculate percentile only when a supported reference exists.
         const percentile = resolvedReference
           ? calculatePercentile(
               cdcValue,
@@ -479,6 +485,8 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
               resolvedReference.row.s,
             )
           : undefined;
+
+        // Convert the raw measurement to the selected display unit.
         const displayValue = convertFromCdcToDisplayUnit(
           cdcValue,
           measurementType,
@@ -518,6 +526,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
     let totalMonths = years * 12 + months;
     if (days < 0) totalMonths -= 1;
 
+    // Add a 1 month chart buffer and keep the original 3 month minimum.
     return Math.max(3, Math.ceil(totalMonths + 1));
   }, [selectedBaby]);
 
@@ -779,11 +788,12 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
               data={chartData}
               margin={{ top: 20, right: 30, left: 15, bottom: 15 }}
             >
-              <CartesianGrid strokeDasharray="3 3" className="growth-chart-grid" />              <XAxis
-      dataKey="ageMonths"
-      type="number"
-      domain={[0, 'dataMax']}
-      label={{ value: 'Age (months)', position: 'insideBottom', offset: -10 }}
+              <CartesianGrid strokeDasharray="3 3" className="growth-chart-grid" />
+              <XAxis
+                dataKey="ageMonths"
+                type="number"
+                domain={[0, 'dataMax']}
+                label={{ value: 'Age (months)', position: 'insideBottom', offset: -10 }}
                 tickFormatter={(value) => value.toString()}
                 className="growth-chart-axis"
               />
@@ -892,7 +902,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
 
       {/* Measurements list with percentiles */}
       {measurementsWithPercentiles.length > 0 && (
-        <div className={cn(growthChartStyles.measurementsList, "growth-chart-measurements-list")}>
+        <div className={cn(growthChartStyles.measurementsList, "growth-chart-measurements-list", className)}>
           <h4 className={cn(growthChartStyles.measurementsTitle, "growth-chart-measurements-title")}>
             {t('Recorded Measurements')}
           </h4>
