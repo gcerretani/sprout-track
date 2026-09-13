@@ -40,9 +40,9 @@ async function handleGet(req: NextRequest, authContext: AuthResult) {
     }
 
     const { searchParams } = new URL(req.url);
-    const sex = searchParams.get('sex');
-    const measurementTypeParam = searchParams.get('type');
-    const standardParam = (searchParams.get('standard') || 'CDC').toUpperCase();
+    const sex = searchParams.get('sex'); // 1 = Male, 2 = Female
+    const measurementTypeParam = searchParams.get('type'); // weight, length, head_circumference
+    const standardParam = (searchParams.get('standard') || 'CDC').toUpperCase(); // CDC or WHO
 
     if (!isValidGrowthStandard(standardParam)) {
       return NextResponse.json<ApiResponse<null>>(
@@ -54,8 +54,8 @@ async function handleGet(req: NextRequest, authContext: AuthResult) {
     if (!sex || !isValidMeasurementType(measurementTypeParam)) {
       return NextResponse.json<ApiResponse<null>>(
         {
-success: false,
-error: 'sex and a valid type (weight, length, or head_circumference) are required',
+          success: false,
+          error: 'sex and a valid type (weight, length, or head_circumference) are required',
         },
         { status: 400 },
       );
@@ -93,48 +93,64 @@ error: 'sex and a valid type (weight, length, or head_circumference) are require
     if (standard === 'WHO') {
       switch (measurementType) {
         case 'weight':
-primaryRows = await prisma.whoWeightForAge.findMany({
-  where: { sex: sexNum }, orderBy: { ageMonths: 'asc' }, select: selectFields,
-});
-break;
+          primaryRows = await prisma.whoWeightForAge.findMany({
+            where: { sex: sexNum },
+            orderBy: { ageMonths: 'asc' },
+            select: selectFields,
+          });
+          break;
         case 'length':
-primaryRows = await prisma.whoLengthForAge.findMany({
-  where: { sex: sexNum }, orderBy: { ageMonths: 'asc' }, select: selectFields,
-});
-break;
+          primaryRows = await prisma.whoLengthForAge.findMany({
+            where: { sex: sexNum },
+            orderBy: { ageMonths: 'asc' },
+            select: selectFields,
+          });
+          break;
         case 'head_circumference':
-primaryRows = await prisma.whoHeadCircumferenceForAge.findMany({
-  where: { sex: sexNum }, orderBy: { ageMonths: 'asc' }, select: selectFields,
-});
-break;
+          primaryRows = await prisma.whoHeadCircumferenceForAge.findMany({
+            where: { sex: sexNum },
+            orderBy: { ageMonths: 'asc' },
+            select: selectFields,
+          });
+          break;
       }
     } else {
       switch (measurementType) {
         case 'weight':
-[primaryRows, childRows] = await Promise.all([
-  prisma.cdcWeightForAge.findMany({
-    where: { sex: sexNum }, orderBy: { ageMonths: 'asc' }, select: selectFields,
-  }),
-  prisma.cdcChildWeightForAge.findMany({
-    where: { sex: sexNum }, orderBy: { ageMonths: 'asc' }, select: selectFields,
-  }),
-]);
-break;
+          [primaryRows, childRows] = await Promise.all([
+            prisma.cdcWeightForAge.findMany({
+              where: { sex: sexNum },
+              orderBy: { ageMonths: 'asc' },
+              select: selectFields,
+            }),
+            prisma.cdcChildWeightForAge.findMany({
+              where: { sex: sexNum },
+              orderBy: { ageMonths: 'asc' },
+              select: selectFields,
+            }),
+          ]);
+          break;
         case 'length':
-[primaryRows, childRows] = await Promise.all([
-  prisma.cdcLengthForAge.findMany({
-    where: { sex: sexNum }, orderBy: { ageMonths: 'asc' }, select: selectFields,
-  }),
-  prisma.cdcStatureForAge.findMany({
-    where: { sex: sexNum }, orderBy: { ageMonths: 'asc' }, select: selectFields,
-  }),
-]);
-break;
+          [primaryRows, childRows] = await Promise.all([
+            prisma.cdcLengthForAge.findMany({
+              where: { sex: sexNum },
+              orderBy: { ageMonths: 'asc' },
+              select: selectFields,
+            }),
+            prisma.cdcStatureForAge.findMany({
+              where: { sex: sexNum },
+              orderBy: { ageMonths: 'asc' },
+              select: selectFields,
+            }),
+          ]);
+          break;
         case 'head_circumference':
-primaryRows = await prisma.cdcHeadCircumferenceForAge.findMany({
-  where: { sex: sexNum }, orderBy: { ageMonths: 'asc' }, select: selectFields,
-});
-break;
+          primaryRows = await prisma.cdcHeadCircumferenceForAge.findMany({
+            where: { sex: sexNum },
+            orderBy: { ageMonths: 'asc' },
+            select: selectFields,
+          });
+          break;
       }
     }
 
