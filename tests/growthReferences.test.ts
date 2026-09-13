@@ -35,6 +35,7 @@ const cdcWeightSegments: GrowthReferenceSegment[] = [
     measurement: 'weight',
     effectiveFromMonths: 0,
     effectiveToMonths: 24,
+    breakAfter: false,
     rows: [row(23.5, 100), row(24.5, 100)],
   },
   {
@@ -43,12 +44,13 @@ const cdcWeightSegments: GrowthReferenceSegment[] = [
     measurement: 'weight',
     effectiveFromMonths: 24,
     effectiveToMonths: null,
+    breakAfter: false,
     rows: [row(24, 200), row(24.5, 200), row(60, 200), row(240, 200)],
   },
 ];
 
 describe('createGrowthReferenceSegments', () => {
-  it('centralizes the CDC infant-to-child weight transition at 24 months', () => {
+  it('centralizes the CDC infant-to-child weight transition at 24 months without a visual break', () => {
     const segments = createGrowthReferenceSegments(
       'CDC',
       'weight',
@@ -59,21 +61,26 @@ describe('createGrowthReferenceSegments', () => {
       segment.id,
       segment.effectiveFromMonths,
       segment.effectiveToMonths,
+      segment.breakAfter,
     ])).toEqual([
-      ['cdc-infant-weight', 0, 24],
-      ['cdc-child-weight', 24, null],
+      ['cdc-infant-weight', 0, 24, false],
+      ['cdc-child-weight', 24, null, false],
     ]);
   });
 
-  it('uses stature as the child successor for the existing length measurement', () => {
-    expect(createGrowthReferenceSegments('CDC', 'length', [], [row(24)])[1].id)
-      .toBe('cdc-child-stature');
+  it('uses stature as the child successor and breaks the length curve at 24 months', () => {
+    const segments = createGrowthReferenceSegments('CDC', 'length', [], [row(24)]);
+    expect(segments[0].id).toBe('cdc-infant-length');
+    expect(segments[0].breakAfter).toBe(true);
+    expect(segments[1].id).toBe('cdc-child-stature');
+    expect(segments[1].breakAfter).toBe(false);
   });
 
   it('keeps head circumference as a single no-successor CDC segment', () => {
     const segments = createGrowthReferenceSegments('CDC', 'head_circumference', [row(36)]);
     expect(segments).toHaveLength(1);
     expect(segments[0].effectiveToMonths).toBeNull();
+    expect(segments[0].breakAfter).toBe(false);
   });
 });
 
@@ -161,11 +168,29 @@ describe('resolveGrowthReference', () => {
 });
 
 describe('buildGrowthReferenceChartPoints', () => {
-  it('draws a real break at 24 months instead of joining infant and child curves', () => {
+  it('keeps the CDC weight percentile curve continuous at 24 months', () => {
     const points = buildGrowthReferenceChartPoints({
       segments: cdcWeightSegments,
       standard: 'CDC',
       measurement: 'weight',
+      maxReferenceAgeMonths: 60,
+      measurements: [],
+    });
+    expect(points.some(point => point.referenceBreak)).toBe(false);
+    expect(points.find(point => point.ageMonths === 24)?.p50).toBe(224);
+  });
+
+  it('draws a real break at the CDC length-to-stature transition', () => {
+    const lengthSegments = createGrowthReferenceSegments(
+      'CDC',
+      'length',
+      [row(23.5, 100), row(24.5, 100)],
+      [row(24, 200), row(24.5, 200), row(60, 200)],
+    );
+    const points = buildGrowthReferenceChartPoints({
+      segments: lengthSegments,
+      standard: 'CDC',
+      measurement: 'length',
       maxReferenceAgeMonths: 60,
       measurements: [],
     });
