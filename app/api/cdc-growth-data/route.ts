@@ -7,7 +7,7 @@ import {
   type GrowthStandard,
 } from '@/src/utils/growthStandard';
 import {
-  CDC_CHILD_REFERENCE_START_MONTHS,
+  createGrowthReferenceSegments,
   type GrowthReferenceMeasurement,
   type GrowthReferenceRow,
   type GrowthReferenceSegment,
@@ -29,25 +29,7 @@ function isValidMeasurementType(value: string | null): value is GrowthReferenceM
   return value !== null && MEASUREMENT_TYPES.includes(value as GrowthReferenceMeasurement);
 }
 
-function createSegment(
-  id: string,
-  standard: GrowthStandard,
-  measurement: GrowthReferenceMeasurement,
-  effectiveFromMonths: number,
-  effectiveToMonths: number | null,
-  rows: GrowthReferenceRow[],
-): GrowthReferenceSegment {
-  return {
-    id,
-    standard,
-    measurement,
-    effectiveFromMonths,
-    effectiveToMonths,
-    rows,
-  };
-}
-
-export async function handleGet(req: NextRequest, authContext: AuthResult) {
+async function handleGet(req: NextRequest, authContext: AuthResult) {
   try {
     const { familyId: userFamilyId } = authContext;
     if (!userFamilyId) {
@@ -72,8 +54,8 @@ export async function handleGet(req: NextRequest, authContext: AuthResult) {
     if (!sex || !isValidMeasurementType(measurementTypeParam)) {
       return NextResponse.json<ApiResponse<null>>(
         {
-          success: false,
-          error: 'sex and a valid type (weight, length, or head_circumference) are required',
+success: false,
+error: 'sex and a valid type (weight, length, or head_circumference) are required',
         },
         { status: 400 },
       );
@@ -105,103 +87,66 @@ export async function handleGet(req: NextRequest, authContext: AuthResult) {
       p97: true,
     } as const;
 
-    let segments: GrowthReferenceSegment[];
+    let primaryRows: GrowthReferenceRow[];
+    let childRows: GrowthReferenceRow[] = [];
 
     if (standard === 'WHO') {
-      let rows: GrowthReferenceRow[];
       switch (measurementType) {
         case 'weight':
-          rows = await prisma.whoWeightForAge.findMany({
-            where: { sex: sexNum },
-            orderBy: { ageMonths: 'asc' },
-            select: selectFields,
-          });
-          break;
+primaryRows = await prisma.whoWeightForAge.findMany({
+  where: { sex: sexNum }, orderBy: { ageMonths: 'asc' }, select: selectFields,
+});
+break;
         case 'length':
-          rows = await prisma.whoLengthForAge.findMany({
-            where: { sex: sexNum },
-            orderBy: { ageMonths: 'asc' },
-            select: selectFields,
-          });
-          break;
+primaryRows = await prisma.whoLengthForAge.findMany({
+  where: { sex: sexNum }, orderBy: { ageMonths: 'asc' }, select: selectFields,
+});
+break;
         case 'head_circumference':
-          rows = await prisma.whoHeadCircumferenceForAge.findMany({
-            where: { sex: sexNum },
-            orderBy: { ageMonths: 'asc' },
-            select: selectFields,
-          });
-          break;
+primaryRows = await prisma.whoHeadCircumferenceForAge.findMany({
+  where: { sex: sexNum }, orderBy: { ageMonths: 'asc' }, select: selectFields,
+});
+break;
       }
-
-      segments = [
-        createSegment(`who-${measurementType}`, 'WHO', measurementType, 0, null, rows),
-      ];
     } else {
       switch (measurementType) {
-        case 'weight': {
-          const [infantRows, childRows] = await Promise.all([
-            prisma.cdcWeightForAge.findMany({
-              where: { sex: sexNum },
-              orderBy: { ageMonths: 'asc' },
-              select: selectFields,
-            }),
-            prisma.cdcChildWeightForAge.findMany({
-              where: { sex: sexNum },
-              orderBy: { ageMonths: 'asc' },
-              select: selectFields,
-            }),
-          ]);
-          segments = [
-            createSegment('cdc-infant-weight', 'CDC', 'weight', 0, CDC_CHILD_REFERENCE_START_MONTHS, infantRows),
-            createSegment('cdc-child-weight', 'CDC', 'weight', CDC_CHILD_REFERENCE_START_MONTHS, null, childRows),
-          ];
-          break;
-        }
-        case 'length': {
-          const [infantRows, childRows] = await Promise.all([
-            prisma.cdcLengthForAge.findMany({
-              where: { sex: sexNum },
-              orderBy: { ageMonths: 'asc' },
-              select: selectFields,
-            }),
-            prisma.cdcStatureForAge.findMany({
-              where: { sex: sexNum },
-              orderBy: { ageMonths: 'asc' },
-              select: selectFields,
-            }),
-          ]);
-          segments = [
-            createSegment('cdc-infant-length', 'CDC', 'length', 0, CDC_CHILD_REFERENCE_START_MONTHS, infantRows),
-            createSegment('cdc-child-stature', 'CDC', 'length', CDC_CHILD_REFERENCE_START_MONTHS, null, childRows),
-          ];
-          break;
-        }
-        case 'head_circumference': {
-          const rows = await prisma.cdcHeadCircumferenceForAge.findMany({
-            where: { sex: sexNum },
-            orderBy: { ageMonths: 'asc' },
-            select: selectFields,
-          });
-          segments = [
-            createSegment(
-              'cdc-infant-head-circumference',
-              'CDC',
-              'head_circumference',
-              0,
-              null,
-              rows,
-            ),
-          ];
-          break;
-        }
+        case 'weight':
+[primaryRows, childRows] = await Promise.all([
+  prisma.cdcWeightForAge.findMany({
+    where: { sex: sexNum }, orderBy: { ageMonths: 'asc' }, select: selectFields,
+  }),
+  prisma.cdcChildWeightForAge.findMany({
+    where: { sex: sexNum }, orderBy: { ageMonths: 'asc' }, select: selectFields,
+  }),
+]);
+break;
+        case 'length':
+[primaryRows, childRows] = await Promise.all([
+  prisma.cdcLengthForAge.findMany({
+    where: { sex: sexNum }, orderBy: { ageMonths: 'asc' }, select: selectFields,
+  }),
+  prisma.cdcStatureForAge.findMany({
+    where: { sex: sexNum }, orderBy: { ageMonths: 'asc' }, select: selectFields,
+  }),
+]);
+break;
+        case 'head_circumference':
+primaryRows = await prisma.cdcHeadCircumferenceForAge.findMany({
+  where: { sex: sexNum }, orderBy: { ageMonths: 'asc' }, select: selectFields,
+});
+break;
       }
     }
 
+    const segments = createGrowthReferenceSegments(
+      standard,
+      measurementType,
+      primaryRows,
+      childRows,
+    );
+
     return NextResponse.json<ApiResponse<GrowthReferenceDataResponse>>(
-      {
-        success: true,
-        data: { standard, measurementType, segments },
-      },
+      { success: true, data: { standard, measurementType, segments } },
       { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } },
     );
   } catch (error) {

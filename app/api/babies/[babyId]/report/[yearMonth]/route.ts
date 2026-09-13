@@ -5,12 +5,12 @@ import { withAuthContext, AuthResult } from '../../../../utils/auth';
 import { formatForResponse } from '../../../../utils/timezone';
 import { toCdcWeightKg, fromCdcWeightKg } from '@/src/utils/weightUnits';
 import { isDirtyDiaper } from '@/src/utils/diaperStats';
-import { effectiveGrowthStandard } from '@/src/utils/growthStandard';
+import { calculateGrowthAgeMonths, effectiveGrowthStandard } from '@/src/utils/growthStandard';
 import {
-  CDC_CHILD_REFERENCE_START_MONTHS,
+  buildGrowthReferenceChartPoints,
+  createGrowthReferenceSegments,
   resolveGrowthReference,
   type GrowthReferenceMeasurement,
-  type GrowthReferenceRow,
   type GrowthReferenceSegment,
 } from '@/src/utils/growthReferences';
 import { groupBreastFeedSessions, SESSION_TOLERANCE_MS } from '../../../../../../src/utils/feedSessionUtils';
@@ -225,224 +225,179 @@ async function handleGet(req: NextRequest, authContext: AuthResult): Promise<Nex
 
   // ─── Growth ───
   // CDC tables store data in kg (weight) and cm (length/head).
-  // User measurements may be in lb/oz/in. We must convert to CDC units for percentile calc.
+  // User measurements may be in lb/oz/in. We must convert to reference units for percentile calc.
   const sex = baby.gender === 'MALE' ? 1 : baby.gender === 'FEMALE' ? 2 : null;
-  const maxAgeMonths = Math.ceil(ageInMonths(birthDate, endOfMonth));
+  const maxAgeMonths = Math.ceil(calculateGrowthAgeMonths(birthDate, endOfMonth));
 
-  // Fetch family settings for display units
   const familySettings = await prisma.settings.findFirst({
     where: { familyId: userFamilyId },
     select: { defaultWeightUnit: true, defaultHeightUnit: true, growthChartStandard: true },
   });
   const displayWeightUnit = (familySettings?.defaultWeightUnit || 'LB').toUpperCase();
   const displayHeightUnit = (familySettings?.defaultHeightUnit || 'IN').toUpperCase();
-  // Choose the standard for the whole report from the baby's age at the end of the
-  // report month; WHO past 24 months automatically falls back to CDC.
-  const reportAgeMonths = ageInMonths(birthDate, endOfMonth);
-  const growthStandard = effectiveGrowthStandard(familySettings?.growthChartStandard, reportAgeMonths);
+  const reportAgeMonths = calculateGrowthAgeMonths(birthDate, endOfMonth);
+  const growthStandard = effectiveGrowthStandard(
+    familySettings?.growthChartStandard,
+    reportAgeMonths,
+  );
 
-  // Unit conversion helpers (weight math shared with GrowthChart via weightUnits)
-  function toCdcUnit(value: number, unit: string, type: 'weight' | 'length' | 'head_circumference'): number {
-    if (type === 'weight') {
-      return toCdcWeightKg(value, unit);
-    }
-    // length / head_circumference — CDC uses cm
-    const u = (unit || '').toUpperCase().trim();
-    if (u === 'IN') return value * 2.54;
-    return value; // assume cm
+  function toCdcUnit(
+    value: number,
+    unit: string,
+    type: GrowthReferenceMeasurement,
+  ): number {
+    if (type === 'weight') return toCdcWeightKg(value, unit);
+    const normalizedUnit = (unit || '').toUpperCase().trim();
+    if (normalizedUnit === 'IN') return value * 2.54;
+    return value;
   }
 
-  function fromCdcUnit(value: number, type: 'weight' | 'length' | 'head_circumference'): number {
-    if (type === 'weight') {
-      return fromCdcWeightKg(value, displayWeightUnit);
-    }
-    // length / head — convert from cm to display unit
+  function fromCdcUnit(value: number, type: GrowthReferenceMeasurement): number {
+    if (type === 'weight') return fromCdcWeightKg(value, displayWeightUnit);
     if (displayHeightUnit === 'IN') return value / 2.54;
-    return value; // cm
+    return value;
   }
 
-  // Pre-fetch the age-bounded growth references used by both metrics and charts.
-const growthWhere = sex ? { sex } : undefined;
-const growthOrder = { orderBy: { ageMonths: 'asc' } as const };
+  const growthWhere = sex ? { sex } : undefined;
+  const growthOrder = { orderBy: { ageMonths: 'asc' } as const };
 
-function createGrowthReferenceSegment(
-  id: string,
-  standard: 'CDC' | 'WHO',
-  measurement: GrowthReferenceMeasurement,
-  effectiveFromMonths: number,
-  effectiveToMonths: number | null,
-  rows: GrowthReferenceRow[],
-): GrowthReferenceSegment {
-  return {
-    id,
-    standard,
-    measurement,
-    effectiveFromMonths,
-    effectiveToMonths,
-    rows,
-  };
-}
+  let weightReferenceSegments: GrowthReferenceSegment[] = [];
+  let lengthReferenceSegments: GrowthReferenceSegment[] = [];
+  let headReferenceSegments: GrowthReferenceSegment[] = [];
 
-let weightReferenceSegments: GrowthReferenceSegment[] = [];
-let lengthReferenceSegments: GrowthReferenceSegment[] = [];
-let headReferenceSegments: GrowthReferenceSegment[] = [];
-
-if (sex) {
-  if (growthStandard === 'WHO') {
-    const [weightRows, lengthRows, headRows] = await Promise.all([
-      prisma.whoWeightForAge.findMany({ where: growthWhere, ...growthOrder }),
-      prisma.whoLengthForAge.findMany({ where: growthWhere, ...growthOrder }),
-      prisma.whoHeadCircumferenceForAge.findMany({ where: growthWhere, ...growthOrder }),
-    ]);
-
-    weightReferenceSegments = [
-      createGrowthReferenceSegment('who-weight', 'WHO', 'weight', 0, null, weightRows),
-    ];
-    lengthReferenceSegments = [
-      createGrowthReferenceSegment('who-length', 'WHO', 'length', 0, null, lengthRows),
-    ];
-    headReferenceSegments = [
-      createGrowthReferenceSegment(
-        'who-head-circumference',
+  if (sex) {
+    if (growthStandard === 'WHO') {
+      const [weightRows, lengthRows, headRows] = await Promise.all([
+        prisma.whoWeightForAge.findMany({ where: growthWhere, ...growthOrder }),
+        prisma.whoLengthForAge.findMany({ where: growthWhere, ...growthOrder }),
+        prisma.whoHeadCircumferenceForAge.findMany({ where: growthWhere, ...growthOrder }),
+      ]);
+      weightReferenceSegments = createGrowthReferenceSegments('WHO', 'weight', weightRows);
+      lengthReferenceSegments = createGrowthReferenceSegments('WHO', 'length', lengthRows);
+      headReferenceSegments = createGrowthReferenceSegments(
         'WHO',
         'head_circumference',
-        0,
-        null,
         headRows,
-      ),
-    ];
-  } else {
-    const [infantWeightRows, childWeightRows, infantLengthRows, statureRows, headRows] = await Promise.all([
-      prisma.cdcWeightForAge.findMany({ where: growthWhere, ...growthOrder }),
-      prisma.cdcChildWeightForAge.findMany({ where: growthWhere, ...growthOrder }),
-      prisma.cdcLengthForAge.findMany({ where: growthWhere, ...growthOrder }),
-      prisma.cdcStatureForAge.findMany({ where: growthWhere, ...growthOrder }),
-      prisma.cdcHeadCircumferenceForAge.findMany({ where: growthWhere, ...growthOrder }),
-    ]);
-
-    weightReferenceSegments = [
-      createGrowthReferenceSegment(
-        'cdc-infant-weight',
+      );
+    } else {
+      const [infantWeightRows, childWeightRows, infantLengthRows, statureRows, headRows] =
+        await Promise.all([
+prisma.cdcWeightForAge.findMany({ where: growthWhere, ...growthOrder }),
+prisma.cdcChildWeightForAge.findMany({ where: growthWhere, ...growthOrder }),
+prisma.cdcLengthForAge.findMany({ where: growthWhere, ...growthOrder }),
+prisma.cdcStatureForAge.findMany({ where: growthWhere, ...growthOrder }),
+prisma.cdcHeadCircumferenceForAge.findMany({ where: growthWhere, ...growthOrder }),
+        ]);
+      weightReferenceSegments = createGrowthReferenceSegments(
         'CDC',
         'weight',
-        0,
-        CDC_CHILD_REFERENCE_START_MONTHS,
         infantWeightRows,
-      ),
-      createGrowthReferenceSegment(
-        'cdc-child-weight',
-        'CDC',
-        'weight',
-        CDC_CHILD_REFERENCE_START_MONTHS,
-        null,
         childWeightRows,
-      ),
-    ];
-    lengthReferenceSegments = [
-      createGrowthReferenceSegment(
-        'cdc-infant-length',
+      );
+      lengthReferenceSegments = createGrowthReferenceSegments(
         'CDC',
         'length',
-        0,
-        CDC_CHILD_REFERENCE_START_MONTHS,
         infantLengthRows,
-      ),
-      createGrowthReferenceSegment(
-        'cdc-child-stature',
-        'CDC',
-        'length',
-        CDC_CHILD_REFERENCE_START_MONTHS,
-        null,
         statureRows,
-      ),
-    ];
-    headReferenceSegments = [
-      createGrowthReferenceSegment(
-        'cdc-infant-head-circumference',
+      );
+      headReferenceSegments = createGrowthReferenceSegments(
         'CDC',
         'head_circumference',
-        0,
-        null,
         headRows,
-      ),
-    ];
-  }
-}
-
-function getGrowthReferenceSegments(
-  measurement: GrowthReferenceMeasurement,
-): GrowthReferenceSegment[] {
-  if (measurement === 'weight') return weightReferenceSegments;
-  if (measurement === 'length') return lengthReferenceSegments;
-  return headReferenceSegments;
-}
-
-function calcGrowthMetric(
-  measurement: any | null,
-  prevMeasurement: any | null,
-  growthMeasurement: GrowthReferenceMeasurement,
-): GrowthMetric | null {
-  if (!measurement) return null;
-  const measDate = new Date(measurement.date);
-  const babyAgeMonths = ageInMonths(birthDate, measDate);
-
-  let percentile: number | null = null;
-  if (sex) {
-    const resolvedReference = resolveGrowthReference(
-      getGrowthReferenceSegments(growthMeasurement),
-      growthStandard,
-      growthMeasurement,
-      babyAgeMonths,
-    );
-    if (resolvedReference) {
-      const cdcValue = toCdcUnit(measurement.value, measurement.unit, growthMeasurement);
-      const z = calculateZScore(
-        cdcValue,
-        resolvedReference.row.l,
-        resolvedReference.row.m,
-        resolvedReference.row.s,
       );
-      percentile = zScoreToPercentile(z);
     }
   }
 
-  // Convert measurement to display unit for consistency with the chart.
-  const expectedUnit = growthMeasurement === 'weight' ? displayWeightUnit : displayHeightUnit;
-  const storedUnit = (measurement.unit || '').toUpperCase().trim();
-  let displayValue = measurement.value;
-  let displayUnit = measurement.unit;
-
-  if (storedUnit !== expectedUnit && storedUnit !== '') {
-    const cdcVal = toCdcUnit(measurement.value, measurement.unit, growthMeasurement);
-    displayValue = Math.round(fromCdcUnit(cdcVal, growthMeasurement) * 100) / 100;
-    displayUnit = expectedUnit.toLowerCase();
+  function getGrowthReferenceSegments(
+    measurement: GrowthReferenceMeasurement,
+  ): GrowthReferenceSegment[] {
+    if (measurement === 'weight') return weightReferenceSegments;
+    if (measurement === 'length') return lengthReferenceSegments;
+    return headReferenceSegments;
   }
 
-  let prevDisplayValue: number | null = null;
-  if (prevMeasurement) {
-    const prevStoredUnit = (prevMeasurement.unit || '').toUpperCase().trim();
-    if (prevStoredUnit !== expectedUnit && prevStoredUnit !== '') {
-      const prevCdcVal = toCdcUnit(prevMeasurement.value, prevMeasurement.unit, growthMeasurement);
-      prevDisplayValue = Math.round(fromCdcUnit(prevCdcVal, growthMeasurement) * 100) / 100;
-    } else {
-      prevDisplayValue = prevMeasurement.value;
+  function calcGrowthMetric(
+    measurement: any | null,
+    prevMeasurement: any | null,
+    growthMeasurement: GrowthReferenceMeasurement,
+  ): GrowthMetric | null {
+    if (!measurement) return null;
+    const measDate = new Date(measurement.date);
+    const babyAgeMonths = calculateGrowthAgeMonths(birthDate, measDate);
+
+    let percentile: number | null = null;
+    if (sex) {
+      const resolvedReference = resolveGrowthReference(
+        getGrowthReferenceSegments(growthMeasurement),
+        growthStandard,
+        growthMeasurement,
+        babyAgeMonths,
+      );
+      if (resolvedReference) {
+        const referenceValue = toCdcUnit(
+measurement.value,
+measurement.unit,
+growthMeasurement,
+        );
+        const z = calculateZScore(
+referenceValue,
+resolvedReference.row.l,
+resolvedReference.row.m,
+resolvedReference.row.s,
+        );
+        percentile = zScoreToPercentile(z);
+      }
     }
-  }
 
-  return {
-    value: displayValue,
-    unit: displayUnit,
-    percentile,
-    trend: getTrend(displayValue, prevDisplayValue),
-  };
-}
+    const expectedUnit = growthMeasurement === 'weight'
+      ? displayWeightUnit
+      : displayHeightUnit;
+    const storedUnit = (measurement.unit || '').toUpperCase().trim();
+    let displayValue = measurement.value;
+    let displayUnit = measurement.unit;
+
+    if (storedUnit !== expectedUnit && storedUnit !== '') {
+      const referenceValue = toCdcUnit(
+        measurement.value,
+        measurement.unit,
+        growthMeasurement,
+      );
+      displayValue = Math.round(fromCdcUnit(referenceValue, growthMeasurement) * 100) / 100;
+      displayUnit = expectedUnit.toLowerCase();
+    }
+
+    let prevDisplayValue: number | null = null;
+    if (prevMeasurement) {
+      const prevStoredUnit = (prevMeasurement.unit || '').toUpperCase().trim();
+      if (prevStoredUnit !== expectedUnit && prevStoredUnit !== '') {
+        const prevReferenceValue = toCdcUnit(
+prevMeasurement.value,
+prevMeasurement.unit,
+growthMeasurement,
+        );
+        prevDisplayValue =
+Math.round(fromCdcUnit(prevReferenceValue, growthMeasurement) * 100) / 100;
+      } else {
+        prevDisplayValue = prevMeasurement.value;
+      }
+    }
+
+    return {
+      value: displayValue,
+      unit: displayUnit,
+      percentile,
+      trend: getTrend(displayValue, prevDisplayValue),
+    };
+  }
 
   const weightMetric = calcGrowthMetric(weightThisMonth, weightPrevMonth, 'weight');
   const lengthMetric = calcGrowthMetric(lengthThisMonth, lengthPrevMonth, 'length');
-  const headMetric = calcGrowthMetric(headThisMonth, headPrevMonth, 'head_circumference');
+  const headMetric = calcGrowthMetric(
+    headThisMonth,
+    headPrevMonth,
+    'head_circumference',
+  );
 
-  // Growth velocity (weight delta — in display units)
-  // Convert both months' weights to display unit for an accurate delta
   let velocity: { value: number; unit: string } | null = null;
   if (weightThisMonth && weightPrevMonth) {
     const curCdc = toCdcUnit(weightThisMonth.value, weightThisMonth.unit, 'weight');
@@ -455,101 +410,85 @@ function calcGrowthMetric(
     };
   }
 
-  // Build chart data from bounded reference segments. Measurements remain visible
-// even when no reference exists for their age (for example CDC head circumference).
-function buildChartData(
-  measurements: typeof allWeights,
-  growthMeasurement: GrowthReferenceMeasurement,
-): GrowthChartData {
-  const displayUnit = (growthMeasurement === 'weight' ? displayWeightUnit : displayHeightUnit).toLowerCase();
-  if (!sex || measurements.length === 0) return { points: [], unit: displayUnit };
+  function buildChartData(
+    measurements: typeof allWeights,
+    growthMeasurement: GrowthReferenceMeasurement,
+  ): GrowthChartData {
+    const displayUnit = (
+      growthMeasurement === 'weight' ? displayWeightUnit : displayHeightUnit
+    ).toLowerCase();
+    if (measurements.length === 0) return { points: [], unit: displayUnit };
 
-  const referenceSegments = getGrowthReferenceSegments(growthMeasurement);
-  const convert = (value: number) => Math.round(fromCdcUnit(value, growthMeasurement) * 100) / 100;
+    const referenceSegments = getGrowthReferenceSegments(growthMeasurement);
+    const convertReferenceValue = (value: number) =>
+      Math.round(fromCdcUnit(value, growthMeasurement) * 100) / 100;
 
-  const points: GrowthChartPoint[] = referenceSegments
-    .flatMap(segment =>
-      segment.rows.filter(row =>
-        row.ageMonths >= segment.effectiveFromMonths
-        && (segment.effectiveToMonths === null || row.ageMonths < segment.effectiveToMonths)
-        && row.ageMonths <= maxAgeMonths,
-      ),
-    )
-    .map(row => ({
-      ageMonths: row.ageMonths,
-      p3: convert(row.p3),
-      p10: convert(row.p10),
-      p25: convert(row.p25),
-      p50: convert(row.p50),
-      p75: convert(row.p75),
-      p90: convert(row.p90),
-      p97: convert(row.p97),
+    const chartMeasurements = measurements.flatMap(measurement => {
+      const measurementDate = new Date(measurement.date);
+      if (measurementDate > endOfMonth) return [];
+
+      const measurementAgeMonths = calculateGrowthAgeMonths(birthDate, measurementDate);
+      const referenceValue = toCdcUnit(
+        measurement.value,
+        measurement.unit,
+        growthMeasurement,
+      );
+      const storedUnit = (measurement.unit || '').toUpperCase().trim();
+      const expectedDisplayUnit = growthMeasurement === 'weight'
+        ? displayWeightUnit
+        : displayHeightUnit;
+      const displayMeasurement = storedUnit === expectedDisplayUnit || storedUnit === ''
+        ? measurement.value
+        : Math.round(fromCdcUnit(referenceValue, growthMeasurement) * 100) / 100;
+
+      const resolvedReference = resolveGrowthReference(
+        referenceSegments,
+        growthStandard,
+        growthMeasurement,
+        measurementAgeMonths,
+      );
+      const percentile = resolvedReference
+        ? zScoreToPercentile(calculateZScore(
+  referenceValue,
+  resolvedReference.row.l,
+  resolvedReference.row.m,
+  resolvedReference.row.s,
+))
+        : undefined;
+
+      return [{
+        ageMonths: measurementAgeMonths,
+        value: displayMeasurement,
+        date: formatForResponse(measurement.date as any) || measurementDate.toISOString(),
+        percentile,
+      }];
+    });
+
+    const referencePoints = buildGrowthReferenceChartPoints({
+      segments: referenceSegments,
+      standard: growthStandard,
+      measurement: growthMeasurement,
+      maxReferenceAgeMonths: maxAgeMonths,
+      measurements: chartMeasurements,
+      convertReferenceValue,
+    });
+
+    const points: GrowthChartPoint[] = referencePoints.map(point => ({
+      ageMonths: point.ageMonths,
+      p3: point.p3,
+      p10: point.p10,
+      p25: point.p25,
+      p50: point.p50,
+      p75: point.p75,
+      p90: point.p90,
+      p97: point.p97,
+      measurement: point.measurement,
+      measurementDate: point.measurementDate,
+      percentile: point.percentile,
     }));
 
-  for (const measurement of measurements) {
-    const measurementDate = new Date(measurement.date);
-    if (measurementDate > endOfMonth) continue;
-
-    const measurementAgeMonths = ageInMonths(birthDate, measurementDate);
-    if (measurementAgeMonths < 0) continue;
-
-    const cdcValue = toCdcUnit(measurement.value, measurement.unit, growthMeasurement);
-    const storedUnit = (measurement.unit || '').toUpperCase().trim();
-    const expectedDisplayUnit = growthMeasurement === 'weight' ? displayWeightUnit : displayHeightUnit;
-    const displayMeasurement = storedUnit === expectedDisplayUnit || storedUnit === ''
-      ? measurement.value
-      : Math.round(fromCdcUnit(cdcValue, growthMeasurement) * 100) / 100;
-
-    const resolvedReference = resolveGrowthReference(
-      referenceSegments,
-      growthStandard,
-      growthMeasurement,
-      measurementAgeMonths,
-    );
-
-    const measurementPoint: GrowthChartPoint = {
-      ageMonths: measurementAgeMonths,
-      measurement: displayMeasurement,
-      measurementDate: formatForResponse(measurement.date as any)
-        || measurementDate.toISOString(),
-    };
-
-    if (resolvedReference) {
-      measurementPoint.p3 = convert(resolvedReference.row.p3);
-      measurementPoint.p10 = convert(resolvedReference.row.p10);
-      measurementPoint.p25 = convert(resolvedReference.row.p25);
-      measurementPoint.p50 = convert(resolvedReference.row.p50);
-      measurementPoint.p75 = convert(resolvedReference.row.p75);
-      measurementPoint.p90 = convert(resolvedReference.row.p90);
-      measurementPoint.p97 = convert(resolvedReference.row.p97);
-
-      const z = calculateZScore(
-        cdcValue,
-        resolvedReference.row.l,
-        resolvedReference.row.m,
-        resolvedReference.row.s,
-      );
-      measurementPoint.percentile = zScoreToPercentile(z);
-    }
-
-    const existingPointIndex = points.findIndex(
-      point => Math.abs(point.ageMonths - measurementAgeMonths) < 1e-9,
-    );
-    if (existingPointIndex >= 0) {
-      points[existingPointIndex] = {
-        ...points[existingPointIndex],
-        ...measurementPoint,
-      };
-    } else {
-      points.push(measurementPoint);
-    }
+    return { points, unit: displayUnit };
   }
-
-  return {
-    points: points.sort((a, b) => a.ageMonths - b.ageMonths),
-    unit: displayUnit,
-  };
-}
 
   const weightChartData = buildChartData(allWeights, 'weight');
   const lengthChartData = buildChartData(allLengths, 'length');

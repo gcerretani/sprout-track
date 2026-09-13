@@ -12,6 +12,29 @@ export const WHO_MAX_AGE_MONTHS = 24;
 
 export type GrowthStandard = 'CDC' | 'WHO';
 
+export function calculateGrowthAgeMonths(
+  birthDateInput: Date | string,
+  targetDateInput: Date | string,
+): number {
+  const birth = birthDateInput instanceof Date ? birthDateInput : new Date(birthDateInput);
+  const target = targetDateInput instanceof Date ? targetDateInput : new Date(targetDateInput);
+  if (Number.isNaN(birth.getTime()) || Number.isNaN(target.getTime())) return 0;
+
+  const years = target.getUTCFullYear() - birth.getUTCFullYear();
+  const months = target.getUTCMonth() - birth.getUTCMonth();
+  const days = target.getUTCDate() - birth.getUTCDate();
+
+  let totalMonths = years * 12 + months;
+  if (days < 0) totalMonths -= 1;
+
+  const daysInTargetMonth = new Date(
+    Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  const dayFraction = (days >= 0 ? days : daysInTargetMonth + days) / daysInTargetMonth;
+
+  return Math.max(0, totalMonths + dayFraction);
+}
+
 // Strict membership check for API validation. Storage/query values are uppercase.
 export function isValidGrowthStandard(value: unknown): value is GrowthStandard {
   return value === 'CDC' || value === 'WHO';

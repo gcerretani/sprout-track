@@ -19,10 +19,11 @@ import { useLocalization } from '@/src/context/localization';
 import { useTimezone } from '@/app/context/timezone';
 import { formatDateLong } from '@/src/utils/dateFormat';
 import { toCdcWeightKg, fromCdcWeightKg, weightUnitLabel, formatChartValue } from '@/src/utils/weightUnits';
-import { effectiveGrowthStandard } from '@/src/utils/growthStandard';
+import { calculateGrowthAgeMonths, effectiveGrowthStandard } from '@/src/utils/growthStandard';
 import {
+  buildGrowthReferenceChartPoints,
   resolveGrowthReference,
-  type GrowthReferenceRow,
+  type GrowthReferenceChartPoint,
   type GrowthReferenceSegment,
 } from '@/src/utils/growthReferences';
 import {
@@ -49,21 +50,7 @@ interface Settings {
   growthChartStandard: 'CDC' | 'WHO';
 }
 
-interface ChartDataPoint {
-  ageMonths: number;
-  p3?: number;
-  p5?: number;
-  p10?: number;
-  p25?: number;
-  p50?: number;
-  p75?: number;
-  p90?: number;
-  p95?: number;
-  p97?: number;
-  measurement?: number;
-  measurementDate?: string;
-  percentile?: number;
-}
+type ChartDataPoint = GrowthReferenceChartPoint;
 
 interface MeasurementWithPercentile {
   ageMonths: number;
@@ -85,26 +72,9 @@ const genderToCdcSex = (gender: string | null | undefined): number => {
   return 1; // Default to male if unknown
 };
 
-// Helper to calculate age in months from birth date
-const calculateAgeInMonths = (birthDate: string, measurementDate: string): number => {
-  const birth = new Date(birthDate);
-  const measurement = new Date(measurementDate);
-
-  const years = measurement.getFullYear() - birth.getFullYear();
-  const months = measurement.getMonth() - birth.getMonth();
-  const days = measurement.getDate() - birth.getDate();
-
-  let totalMonths = years * 12 + months;
-  if (days < 0) {
-    totalMonths -= 1;
-  }
-
-  // Add fractional month based on day of month
-  const daysInMonth = new Date(measurement.getFullYear(), measurement.getMonth() + 1, 0).getDate();
-  const dayFraction = (days >= 0 ? days : daysInMonth + days) / daysInMonth;
-
-  return Math.max(0, totalMonths + dayFraction);
-};
+// Shared growth-age calculation keeps chart/report transition boundaries identical.
+const calculateAgeInMonths = (birthDate: string, measurementDate: string): number =>
+  calculateGrowthAgeMonths(birthDate, measurementDate);
 
 // Helper to convert measurement values to CDC standard units (kg for weight, cm for length)
 const convertToCdcUnit = (value: number, unit: string, type: GrowthMeasurementType): number => {
@@ -346,21 +316,16 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // True age in whole months (no buffer/clamp) for choosing the growth standard.
-  const babyAgeMonthsForStandard = useMemo((): number => {
-    if (!selectedBaby?.birthDate) return 0;
-    const now = new Date();
-    const birth = new Date(selectedBaby.birthDate);
-    let totalMonths =
-      (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
-    if (now.getDate() - birth.getDate() < 0) totalMonths -= 1;
-    return totalMonths;
-  }, [selectedBaby]);
+  // Use fractional growth age for the WHO -> CDC boundary; 24.01 months is CDC.
+const babyAgeMonthsForStandard = useMemo((): number => {
+  if (!selectedBaby?.birthDate) return 0;
+  return calculateGrowthAgeMonths(selectedBaby.birthDate.toString(), new Date());
+}, [selectedBaby]);
 
-  const effectiveStandard = effectiveGrowthStandard(
-    settings?.growthChartStandard,
-    babyAgeMonthsForStandard,
-  );
+const effectiveStandard = effectiveGrowthStandard(
+  settings?.growthChartStandard,
+  babyAgeMonthsForStandard,
+);
 
   // Zoom state
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -491,7 +456,7 @@ useEffect(() => {
 
   // Process measurements with percentiles using the selected age-bounded reference segment.
 const measurementsWithPercentiles = useMemo((): MeasurementWithPercentile[] => {
-  if (!growthReferenceSegments.length || !selectedBaby?.birthDate) return [];
+  if (!selectedBaby?.birthDate) return [];
 
   const displayUnit = getDisplayUnit(measurementType, settings);
 
@@ -556,83 +521,25 @@ const babyCurrentAgeMonths = useMemo((): number => {
   return Math.max(3, Math.ceil(totalMonths + 1));
 }, [selectedBaby]);
 
-// Combine effective reference rows with measurements for chart rendering.
+// Combine bounded reference segments with exact-age measurements for chart rendering.
 const chartData = useMemo((): ChartDataPoint[] => {
-  if (!growthReferenceSegments.length || !selectedBaby?.birthDate) return [];
+  if (!selectedBaby?.birthDate) return [];
 
   const displayUnit = getDisplayUnit(measurementType, settings);
-  const referenceRows: GrowthReferenceRow[] = growthReferenceSegments
-    .flatMap(segment =>
-      segment.rows.filter(row =>
-        row.ageMonths >= segment.effectiveFromMonths
-        && (segment.effectiveToMonths === null || row.ageMonths < segment.effectiveToMonths)
-        && row.ageMonths <= babyCurrentAgeMonths,
-      ),
-    )
-    .sort((a, b) => a.ageMonths - b.ageMonths);
-
-  const toChartReferencePoint = (record: GrowthReferenceRow): ChartDataPoint => ({
-    ageMonths: record.ageMonths,
-    p3: convertFromCdcToDisplayUnit(record.p3, measurementType, displayUnit),
-    p5: convertFromCdcToDisplayUnit(record.p5, measurementType, displayUnit),
-    p10: convertFromCdcToDisplayUnit(record.p10, measurementType, displayUnit),
-    p25: convertFromCdcToDisplayUnit(record.p25, measurementType, displayUnit),
-    p50: convertFromCdcToDisplayUnit(record.p50, measurementType, displayUnit),
-    p75: convertFromCdcToDisplayUnit(record.p75, measurementType, displayUnit),
-    p90: convertFromCdcToDisplayUnit(record.p90, measurementType, displayUnit),
-    p95: convertFromCdcToDisplayUnit(record.p95, measurementType, displayUnit),
-    p97: convertFromCdcToDisplayUnit(record.p97, measurementType, displayUnit),
-  });
-
-  const baseData = referenceRows.map(toChartReferencePoint);
-  const measurementPointsMap: Map<
-    number,
-    { value: number; date: string; percentile?: number }
-  > = new Map();
-
-  measurementsWithPercentiles.forEach(m => {
-    const roundedAge = Math.round(m.ageMonths * 2) / 2;
-    measurementPointsMap.set(roundedAge, {
-      value: m.displayValue,
-      date: m.date,
-      percentile: m.percentile,
-    });
-  });
-
-  const mergedData = baseData.map(point => {
-    const measurement = measurementPointsMap.get(point.ageMonths);
-    if (!measurement) return point;
-
-    measurementPointsMap.delete(point.ageMonths);
-    return {
-      ...point,
-      measurement: measurement.value,
-      measurementDate: measurement.date,
+  return buildGrowthReferenceChartPoints({
+    segments: growthReferenceSegments,
+    standard: effectiveStandard,
+    measurement: measurementType,
+    maxReferenceAgeMonths: babyCurrentAgeMonths,
+    measurements: measurementsWithPercentiles.map(measurement => ({
+      ageMonths: measurement.ageMonths,
+      value: measurement.displayValue,
+      date: measurement.date,
       percentile: measurement.percentile,
-    };
+    })),
+    convertReferenceValue: value =>
+      convertFromCdcToDisplayUnit(value, measurementType, displayUnit),
   });
-
-  measurementPointsMap.forEach((measurement, age) => {
-    const resolvedReference = resolveGrowthReference(
-      growthReferenceSegments,
-      effectiveStandard,
-      measurementType,
-      age,
-    );
-    const referencePoint = resolvedReference
-      ? toChartReferencePoint(resolvedReference.row)
-      : { ageMonths: age };
-
-    mergedData.push({
-      ...referencePoint,
-      ageMonths: age,
-      measurement: measurement.value,
-      measurementDate: measurement.date,
-      percentile: measurement.percentile,
-    });
-  });
-
-  return mergedData.sort((a, b) => a.ageMonths - b.ageMonths);
 }, [
   growthReferenceSegments,
   measurementsWithPercentiles,
@@ -752,7 +659,7 @@ const chartData = useMemo((): ChartDataPoint[] => {
   // Get measurement type button config
   const measurementTypes: { type: GrowthMeasurementType; label: string; icon: React.ReactNode }[] = [
     { type: 'weight', label: 'Weight', icon: <Scale aria-hidden="true" className="h-4 w-4" /> },
-    { type: 'length', label: 'Length', icon: <Ruler aria-hidden="true" className="h-4 w-4" /> },
+    { type: 'length', label: 'Length / Height', icon: <Ruler aria-hidden="true" className="h-4 w-4" /> },
     { type: 'head_circumference', label: 'Head', icon: <CircleDot aria-hidden="true" className="h-4 w-4" /> },
   ];
 
@@ -807,7 +714,7 @@ const chartData = useMemo((): ChartDataPoint[] => {
               )}
             >
               {icon}
-              <span>{label}</span>
+              <span>{t(label)}</span>
             </button>
           ))}
         </div>
@@ -872,10 +779,11 @@ const chartData = useMemo((): ChartDataPoint[] => {
               data={chartData}
               margin={{ top: 20, right: 30, left: 15, bottom: 15 }}
             >
-              <CartesianGrid strokeDasharray="3 3" className="growth-chart-grid" />
-              <XAxis
-                dataKey="ageMonths"
-                label={{ value: 'Age (months)', position: 'insideBottom', offset: -10 }}
+              <CartesianGrid strokeDasharray="3 3" className="growth-chart-grid" />              <XAxis
+      dataKey="ageMonths"
+      type="number"
+      domain={[0, 'dataMax']}
+      label={{ value: 'Age (months)', position: 'insideBottom', offset: -10 }}
                 tickFormatter={(value) => value.toString()}
                 className="growth-chart-axis"
               />

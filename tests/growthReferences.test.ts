@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildGrowthReferenceChartPoints,
+  createGrowthReferenceSegments,
   interpolateGrowthReferenceRow,
   resolveGrowthReference,
   selectGrowthReferenceSegment,
@@ -41,24 +43,51 @@ const cdcWeightSegments: GrowthReferenceSegment[] = [
     measurement: 'weight',
     effectiveFromMonths: 24,
     effectiveToMonths: null,
-    rows: [row(24, 200), row(24.5, 200), row(240, 200)],
+    rows: [row(24, 200), row(24.5, 200), row(60, 200), row(240, 200)],
   },
 ];
 
+describe('createGrowthReferenceSegments', () => {
+  it('centralizes the CDC infant-to-child weight transition at 24 months', () => {
+    const segments = createGrowthReferenceSegments(
+      'CDC',
+      'weight',
+      [row(23.5)],
+      [row(24)],
+    );
+    expect(segments.map(segment => [
+      segment.id,
+      segment.effectiveFromMonths,
+      segment.effectiveToMonths,
+    ])).toEqual([
+      ['cdc-infant-weight', 0, 24],
+      ['cdc-child-weight', 24, null],
+    ]);
+  });
+
+  it('uses stature as the child successor for the existing length measurement', () => {
+    expect(createGrowthReferenceSegments('CDC', 'length', [], [row(24)])[1].id)
+      .toBe('cdc-child-stature');
+  });
+
+  it('keeps head circumference as a single no-successor CDC segment', () => {
+    const segments = createGrowthReferenceSegments('CDC', 'head_circumference', [row(36)]);
+    expect(segments).toHaveLength(1);
+    expect(segments[0].effectiveToMonths).toBeNull();
+  });
+});
+
 describe('selectGrowthReferenceSegment', () => {
   it('uses the infant segment immediately before the transition', () => {
-    expect(selectGrowthReferenceSegment(cdcWeightSegments, 'CDC', 'weight', 23.9)?.id).toBe(
-      'cdc-infant-weight',
-    );
+    expect(selectGrowthReferenceSegment(cdcWeightSegments, 'CDC', 'weight', 23.9)?.id)
+      .toBe('cdc-infant-weight');
   });
 
   it('switches to the child segment exactly at 24 months', () => {
-    expect(selectGrowthReferenceSegment(cdcWeightSegments, 'CDC', 'weight', 24)?.id).toBe(
-      'cdc-child-weight',
-    );
-    expect(selectGrowthReferenceSegment(cdcWeightSegments, 'CDC', 'weight', 24.1)?.id).toBe(
-      'cdc-child-weight',
-    );
+    expect(selectGrowthReferenceSegment(cdcWeightSegments, 'CDC', 'weight', 24)?.id)
+      .toBe('cdc-child-weight');
+    expect(selectGrowthReferenceSegment(cdcWeightSegments, 'CDC', 'weight', 24.1)?.id)
+      .toBe('cdc-child-weight');
   });
 
   it('returns null for an unsupported standard or measurement', () => {
@@ -69,12 +98,8 @@ describe('selectGrowthReferenceSegment', () => {
   it('fails closed when overlapping effective ranges are ambiguous', () => {
     const overlapping = [
       ...cdcWeightSegments,
-      {
-        ...cdcWeightSegments[0],
-        id: 'duplicate-infant-weight',
-      },
+      { ...cdcWeightSegments[0], id: 'duplicate-infant-weight' },
     ];
-
     expect(selectGrowthReferenceSegment(overlapping, 'CDC', 'weight', 12)).toBeNull();
   });
 });
@@ -87,8 +112,7 @@ describe('interpolateGrowthReferenceRow', () => {
   });
 
   it('interpolates all LMS and percentile fields inside a dataset', () => {
-    const result = interpolateGrowthReferenceRow([row(10), row(20)], 15);
-    expect(result).toEqual(row(15));
+    expect(interpolateGrowthReferenceRow([row(10), row(20)], 15)).toEqual(row(15));
   });
 
   it('never reuses the first or last row outside the raw data range', () => {
@@ -108,64 +132,91 @@ describe('resolveGrowthReference', () => {
   it('selects a segment before interpolation, so datasets are never blended', () => {
     const beforeTransition = resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 23.9);
     const atTransition = resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 24);
-
     expect(beforeTransition?.segment.id).toBe('cdc-infant-weight');
     expect(beforeTransition?.row.m).toBeCloseTo(123.9, 10);
-
     expect(atTransition?.segment.id).toBe('cdc-child-weight');
     expect(atTransition?.row.m).toBe(224);
   });
 
   it('can use raw infant rows beyond the effective transition to interpolate just before it', () => {
     const result = resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 23.99);
-
     expect(result?.segment.id).toBe('cdc-infant-weight');
     expect(result?.row.m).toBeCloseTo(123.99, 10);
   });
 
-  it('returns null beyond the raw maximum even when the policy segment has no upper switch', () => {
+  it('returns null beyond the raw maximum even when policy has no upper switch', () => {
     expect(resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 240)?.row.m).toBe(440);
     expect(resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 240.01)).toBeNull();
   });
 
-  it('supports a no-successor reference while still respecting its raw maximum', () => {
-    const headCircumferenceSegments: GrowthReferenceSegment[] = [
-      {
-        id: 'cdc-infant-head-circumference',
-        standard: 'CDC',
-        measurement: 'head_circumference',
-        effectiveFromMonths: 0,
-        effectiveToMonths: null,
-        rows: [row(0), row(36)],
-      },
-    ];
-
-    expect(
-      resolveGrowthReference(headCircumferenceSegments, 'CDC', 'head_circumference', 36),
-    ).not.toBeNull();
-    expect(
-      resolveGrowthReference(headCircumferenceSegments, 'CDC', 'head_circumference', 36.01),
-    ).toBeNull();
+  it('supports a no-successor reference while respecting its raw maximum', () => {
+    const segments = createGrowthReferenceSegments(
+      'CDC',
+      'head_circumference',
+      [row(0), row(36)],
+    );
+    expect(resolveGrowthReference(segments, 'CDC', 'head_circumference', 36)).not.toBeNull();
+    expect(resolveGrowthReference(segments, 'CDC', 'head_circumference', 36.01)).toBeNull();
   });
 });
 
-
-describe('extended CDC reference regressions', () => {
-  it('keeps child references available well beyond 36 months', () => {
-    const result = resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 60);
-    expect(result?.segment.id).toBe('cdc-child-weight');
-    expect(result?.row.ageMonths).toBe(60);
+describe('buildGrowthReferenceChartPoints', () => {
+  it('draws a real break at 24 months instead of joining infant and child curves', () => {
+    const points = buildGrowthReferenceChartPoints({
+      segments: cdcWeightSegments,
+      standard: 'CDC',
+      measurement: 'weight',
+      maxReferenceAgeMonths: 60,
+      measurements: [],
+    });
+    const breakIndex = points.findIndex(point => point.referenceBreak);
+    expect(breakIndex).toBeGreaterThan(0);
+    expect(points[breakIndex].ageMonths).toBe(24);
+    expect(points[breakIndex].p50).toBeUndefined();
+    expect(points[breakIndex - 1].ageMonths).toBeLessThan(24);
+    expect(points[breakIndex - 1].ageMonths).toBeCloseTo(24, 5);
+    expect(points[breakIndex + 1].ageMonths).toBe(24);
+    expect(points[breakIndex + 1].p50).toBe(224);
   });
 
-  it('supports the final child reference row but nothing after it', () => {
+  it('keeps a 23.99-month measurement at its exact age and on the infant reference', () => {
+    const points = buildGrowthReferenceChartPoints({
+      segments: cdcWeightSegments,
+      standard: 'CDC',
+      measurement: 'weight',
+      maxReferenceAgeMonths: 60,
+      measurements: [{ ageMonths: 23.99, value: 12, percentile: 42 }],
+    });
+    const measurement = points.find(point => point.measurement === 12);
+    expect(measurement?.ageMonths).toBe(23.99);
+    expect(measurement?.p50).toBeCloseTo(123.99, 10);
+    expect(measurement?.percentile).toBe(42);
+  });
+
+  it('keeps unsupported head measurements visible without extending percentile curves', () => {
+    const headSegments = createGrowthReferenceSegments(
+      'CDC',
+      'head_circumference',
+      [row(0), row(36)],
+    );
+    const points = buildGrowthReferenceChartPoints({
+      segments: headSegments,
+      standard: 'CDC',
+      measurement: 'head_circumference',
+      maxReferenceAgeMonths: 50,
+      measurements: [{ ageMonths: 40, value: 51 }],
+    });
+    const measurement = points.find(point => point.measurement === 51);
+    expect(measurement?.ageMonths).toBe(40);
+    expect(measurement?.p50).toBeUndefined();
+    expect(measurement?.percentile).toBeUndefined();
+    expect(points.filter(point => point.p50 !== undefined).at(-1)?.ageMonths).toBe(36);
+  });
+
+  it('supports child references beyond 36 months and stops strictly after 240', () => {
+    expect(resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 60)?.segment.id)
+      .toBe('cdc-child-weight');
     expect(resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 240)).not.toBeNull();
     expect(resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 240.001)).toBeNull();
-  });
-
-  it('uses infant policy just before 24 and child policy exactly at 24', () => {
-    expect(resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 23.99)?.segment.id)
-      .toBe('cdc-infant-weight');
-    expect(resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 24)?.segment.id)
-      .toBe('cdc-child-weight');
   });
 });

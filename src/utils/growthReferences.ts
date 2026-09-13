@@ -1,6 +1,8 @@
 import type { GrowthStandard } from './growthStandard';
 
 export const CDC_CHILD_REFERENCE_START_MONTHS = 24;
+const REFERENCE_BOUNDARY_EPSILON_MONTHS = 1e-6;
+const AGE_MATCH_EPSILON_MONTHS = 1e-9;
 
 export type GrowthReferenceMeasurement = 'weight' | 'length' | 'head_circumference';
 
@@ -41,6 +43,31 @@ export interface ResolvedGrowthReference {
   row: GrowthReferenceRow;
 }
 
+export interface GrowthReferenceChartMeasurement {
+  ageMonths: number;
+  value: number;
+  date?: string;
+  percentile?: number;
+}
+
+export interface GrowthReferenceChartPoint {
+  ageMonths: number;
+  p3?: number;
+  p5?: number;
+  p10?: number;
+  p25?: number;
+  p50?: number;
+  p75?: number;
+  p90?: number;
+  p95?: number;
+  p97?: number;
+  measurement?: number;
+  measurementDate?: string;
+  percentile?: number;
+  /** Internal rendering marker: percentile lines must break at dataset transitions. */
+  referenceBreak?: true;
+}
+
 const INTERPOLATED_FIELDS = [
   'l',
   'm',
@@ -61,6 +88,82 @@ function hasFiniteValues(row: GrowthReferenceRow): boolean {
     Number.isFinite(row.ageMonths) &&
     INTERPOLATED_FIELDS.every(field => Number.isFinite(row[field]))
   );
+}
+
+/**
+ * Build the policy segments for one standard/measurement pair. Keeping this
+ * policy here prevents the API and Monthly Report from drifting apart.
+ */
+export function createGrowthReferenceSegments(
+  standard: GrowthStandard,
+  measurement: GrowthReferenceMeasurement,
+  primaryRows: readonly GrowthReferenceRow[],
+  childRows: readonly GrowthReferenceRow[] = [],
+): GrowthReferenceSegment[] {
+  if (standard === 'WHO') {
+    const id = measurement === 'head_circumference'
+      ? 'who-head-circumference'
+      : `who-${measurement}`;
+    return [{
+      id,
+      standard,
+      measurement,
+      effectiveFromMonths: 0,
+      effectiveToMonths: null,
+      rows: primaryRows,
+    }];
+  }
+
+  if (measurement === 'weight') {
+    return [
+      {
+        id: 'cdc-infant-weight',
+        standard: 'CDC',
+        measurement,
+        effectiveFromMonths: 0,
+        effectiveToMonths: CDC_CHILD_REFERENCE_START_MONTHS,
+        rows: primaryRows,
+      },
+      {
+        id: 'cdc-child-weight',
+        standard: 'CDC',
+        measurement,
+        effectiveFromMonths: CDC_CHILD_REFERENCE_START_MONTHS,
+        effectiveToMonths: null,
+        rows: childRows,
+      },
+    ];
+  }
+
+  if (measurement === 'length') {
+    return [
+      {
+        id: 'cdc-infant-length',
+        standard: 'CDC',
+        measurement,
+        effectiveFromMonths: 0,
+        effectiveToMonths: CDC_CHILD_REFERENCE_START_MONTHS,
+        rows: primaryRows,
+      },
+      {
+        id: 'cdc-child-stature',
+        standard: 'CDC',
+        measurement,
+        effectiveFromMonths: CDC_CHILD_REFERENCE_START_MONTHS,
+        effectiveToMonths: null,
+        rows: childRows,
+      },
+    ];
+  }
+
+  return [{
+    id: 'cdc-infant-head-circumference',
+    standard: 'CDC',
+    measurement,
+    effectiveFromMonths: 0,
+    effectiveToMonths: null,
+    rows: primaryRows,
+  }];
 }
 
 /**
@@ -147,4 +250,136 @@ export function resolveGrowthReference(
 
   const row = interpolateGrowthReferenceRow(segment.rows, ageMonths);
   return row ? { segment, row } : null;
+}
+
+function referenceRowToChartPoint(
+  row: GrowthReferenceRow,
+  convertReferenceValue: (value: number) => number,
+): GrowthReferenceChartPoint {
+  return {
+    ageMonths: row.ageMonths,
+    p3: convertReferenceValue(row.p3),
+    p5: convertReferenceValue(row.p5),
+    p10: convertReferenceValue(row.p10),
+    p25: convertReferenceValue(row.p25),
+    p50: convertReferenceValue(row.p50),
+    p75: convertReferenceValue(row.p75),
+    p90: convertReferenceValue(row.p90),
+    p95: convertReferenceValue(row.p95),
+    p97: convertReferenceValue(row.p97),
+  };
+}
+
+/**
+ * Assemble chart points without visually joining distinct reference datasets.
+ * A synthetic point immediately before a policy boundary lets the outgoing
+ * segment reach the boundary, then an undefined point at the boundary breaks
+ * the percentile lines before the successor segment starts.
+ *
+ * Measurements always keep their exact age and remain visible even when no
+ * reference exists for that age.
+ */
+export function buildGrowthReferenceChartPoints(options: {
+  segments: readonly GrowthReferenceSegment[];
+  standard: GrowthStandard;
+  measurement: GrowthReferenceMeasurement;
+  maxReferenceAgeMonths: number | null;
+  measurements: readonly GrowthReferenceChartMeasurement[];
+  convertReferenceValue?: (value: number) => number;
+}): GrowthReferenceChartPoint[] {
+  const {
+    segments,
+    standard,
+    measurement,
+    maxReferenceAgeMonths,
+    measurements,
+    convertReferenceValue = value => value,
+  } = options;
+
+  const matchingSegments = segments
+    .filter(segment => segment.standard === standard && segment.measurement === measurement)
+    .slice()
+    .sort((a, b) => a.effectiveFromMonths - b.effectiveFromMonths);
+
+  const points: GrowthReferenceChartPoint[] = [];
+
+  for (let index = 0; index < matchingSegments.length; index += 1) {
+    const segment = matchingSegments[index];
+    const rows = segment.rows
+      .filter(hasFiniteValues)
+      .filter(row => row.ageMonths >= segment.effectiveFromMonths)
+      .filter(row => segment.effectiveToMonths === null || row.ageMonths < segment.effectiveToMonths)
+      .filter(row => maxReferenceAgeMonths === null || row.ageMonths <= maxReferenceAgeMonths)
+      .slice()
+      .sort((a, b) => a.ageMonths - b.ageMonths);
+
+    points.push(...rows.map(row => referenceRowToChartPoint(row, convertReferenceValue)));
+
+    const nextSegment = matchingSegments[index + 1];
+    const boundary = segment.effectiveToMonths;
+    const hasSuccessorAtBoundary =
+      boundary !== null
+      && nextSegment !== undefined
+      && Math.abs(nextSegment.effectiveFromMonths - boundary) < AGE_MATCH_EPSILON_MONTHS;
+    const boundaryIsVisible =
+      boundary !== null
+      && (maxReferenceAgeMonths === null || boundary <= maxReferenceAgeMonths);
+
+    if (boundary !== null && hasSuccessorAtBoundary && boundaryIsVisible) {
+      const outgoingAge = boundary - REFERENCE_BOUNDARY_EPSILON_MONTHS;
+      const outgoingRow = interpolateGrowthReferenceRow(segment.rows, outgoingAge);
+      if (outgoingRow) {
+        const alreadyPresent = points.some(
+point =>
+  !point.referenceBreak
+  && Math.abs(point.ageMonths - outgoingAge) < AGE_MATCH_EPSILON_MONTHS,
+        );
+        if (!alreadyPresent) {
+points.push(referenceRowToChartPoint(outgoingRow, convertReferenceValue));
+        }
+      }
+      points.push({ ageMonths: boundary, referenceBreak: true });
+    }
+  }
+
+  for (const chartMeasurement of measurements) {
+    if (!Number.isFinite(chartMeasurement.ageMonths) || !Number.isFinite(chartMeasurement.value)) {
+      continue;
+    }
+
+    const resolvedReference = resolveGrowthReference(
+      matchingSegments,
+      standard,
+      measurement,
+      chartMeasurement.ageMonths,
+    );
+    const measurementPoint = resolvedReference
+      ? referenceRowToChartPoint(resolvedReference.row, convertReferenceValue)
+      : { ageMonths: chartMeasurement.ageMonths };
+
+    measurementPoint.measurement = chartMeasurement.value;
+    measurementPoint.measurementDate = chartMeasurement.date;
+    measurementPoint.percentile = chartMeasurement.percentile;
+
+    const existingPointIndex = points.findIndex(
+      point =>
+        !point.referenceBreak
+        && Math.abs(point.ageMonths - chartMeasurement.ageMonths) < AGE_MATCH_EPSILON_MONTHS,
+    );
+    if (existingPointIndex >= 0) {
+      points[existingPointIndex] = {
+        ...points[existingPointIndex],
+        ...measurementPoint,
+      };
+    } else {
+      points.push(measurementPoint);
+    }
+  }
+
+  return points.sort((a, b) => {
+    if (a.ageMonths !== b.ageMonths) return a.ageMonths - b.ageMonths;
+    if (a.referenceBreak && !b.referenceBreak) return -1;
+    if (!a.referenceBreak && b.referenceBreak) return 1;
+    return 0;
+  });
 }

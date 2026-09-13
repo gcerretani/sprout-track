@@ -30,7 +30,8 @@ vi.mock('@/app/api/utils/auth', () => ({
   withAuthContext: (handler: unknown) => handler,
 }));
 
-import { handleGet } from '@/app/api/cdc-growth-data/route';
+import { GET } from '@/app/api/cdc-growth-data/route';
+import type { AuthResult } from '@/app/api/utils/auth';
 
 function row(ageMonths: number, base = 0): GrowthReferenceRow {
   const value = base + ageMonths;
@@ -55,7 +56,8 @@ async function call(type: string, standard = 'CDC') {
   const req = new NextRequest(
     `http://localhost/api/cdc-growth-data?sex=1&type=${type}&standard=${standard}`,
   );
-  const response = await handleGet(req, { authenticated: true, familyId: 'family-1' });
+  const handler = GET as unknown as (req: NextRequest, auth: AuthResult) => Promise<Response>;
+  const response = await handler(req, { authenticated: true, familyId: 'family-1' });
   return { response, body: await response.json() as any };
 }
 
