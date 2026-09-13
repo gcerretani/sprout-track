@@ -316,7 +316,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-    // Use fractional growth age for the WHO -> CDC boundary; 24.01 months is CDC.
+  // Use fractional growth age for the WHO -> CDC boundary; 24.01 months is CDC.
   const babyAgeMonthsForStandard = useMemo((): number => {
     if (!selectedBaby?.birthDate) return 0;
     return calculateGrowthAgeMonths(selectedBaby.birthDate.toString(), new Date());
@@ -368,7 +368,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
     fetchSettings();
   }, []);
 
-    // Fetch age-bounded growth reference segments when the metric or effective standard changes.
+  // Fetch age-bounded growth reference segments when the metric or effective standard changes.
   useEffect(() => {
     const fetchGrowthReferences = async () => {
       if (!selectedBaby) return;
@@ -454,7 +454,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
     fetchMeasurements();
   }, [selectedBaby, measurementType]);
 
-    // Process measurements with percentiles using the selected age-bounded reference segment.
+  // Process measurements with percentiles using the selected age-bounded reference segment.
   const measurementsWithPercentiles = useMemo((): MeasurementWithPercentile[] => {
     if (!selectedBaby?.birthDate) return [];
 

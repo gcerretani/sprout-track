@@ -330,12 +330,12 @@ export function buildGrowthReferenceChartPoints(options: {
       const outgoingRow = interpolateGrowthReferenceRow(segment.rows, outgoingAge);
       if (outgoingRow) {
         const alreadyPresent = points.some(
-point =>
-  !point.referenceBreak
-  && Math.abs(point.ageMonths - outgoingAge) < AGE_MATCH_EPSILON_MONTHS,
+          point =>
+            !point.referenceBreak
+            && Math.abs(point.ageMonths - outgoingAge) < AGE_MATCH_EPSILON_MONTHS,
         );
         if (!alreadyPresent) {
-points.push(referenceRowToChartPoint(outgoingRow, convertReferenceValue));
+          points.push(referenceRowToChartPoint(outgoingRow, convertReferenceValue));
         }
       }
       points.push({ ageMonths: boundary, referenceBreak: true });
