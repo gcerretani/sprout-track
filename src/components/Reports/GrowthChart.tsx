@@ -902,7 +902,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
 
       {/* Measurements list with percentiles */}
       {measurementsWithPercentiles.length > 0 && (
-        <div className={cn(growthChartStyles.measurementsList, "growth-chart-measurements-list", className)}>
+        <div className={cn(growthChartStyles.measurementsList, "growth-chart-measurements-list")}>
           <h4 className={cn(growthChartStyles.measurementsTitle, "growth-chart-measurements-title")}>
             {t('Recorded Measurements')}
           </h4>
