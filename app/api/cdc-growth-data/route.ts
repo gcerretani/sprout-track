@@ -47,7 +47,7 @@ function createSegment(
   };
 }
 
-async function handleGet(req: NextRequest, authContext: AuthResult) {
+export async function handleGet(req: NextRequest, authContext: AuthResult) {
   try {
     const { familyId: userFamilyId } = authContext;
     if (!userFamilyId) {

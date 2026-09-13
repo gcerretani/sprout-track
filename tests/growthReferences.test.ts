@@ -148,3 +148,24 @@ describe('resolveGrowthReference', () => {
     ).toBeNull();
   });
 });
+
+
+describe('extended CDC reference regressions', () => {
+  it('keeps child references available well beyond 36 months', () => {
+    const result = resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 60);
+    expect(result?.segment.id).toBe('cdc-child-weight');
+    expect(result?.row.ageMonths).toBe(60);
+  });
+
+  it('supports the final child reference row but nothing after it', () => {
+    expect(resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 240)).not.toBeNull();
+    expect(resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 240.001)).toBeNull();
+  });
+
+  it('uses infant policy just before 24 and child policy exactly at 24', () => {
+    expect(resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 23.99)?.segment.id)
+      .toBe('cdc-infant-weight');
+    expect(resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 24)?.segment.id)
+      .toBe('cdc-child-weight');
+  });
+});
