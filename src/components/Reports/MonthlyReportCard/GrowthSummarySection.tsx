@@ -63,8 +63,8 @@ function MetricCard({ label, metric }: { label: string; metric: GrowthMetric | n
     );
   }
   const pctText = metric.percentile !== null
-  ? `${metric.percentile}${t(metric.percentile === 1 ? 'st' : metric.percentile === 2 ? 'nd' : metric.percentile === 3 ? 'rd' : 'th')} ${t('percentile')} ${formatTrend(metric.trend)}`
-  : null;
+    ? `${metric.percentile}${t(metric.percentile === 1 ? 'st' : metric.percentile === 2 ? 'nd' : metric.percentile === 3 ? 'rd' : 'th')} ${t('percentile')} ${formatTrend(metric.trend)}`
+    : null;
   return (
     <div className={cn(s.metricCard, 'report-card-metric')}>
       <p className={cn(s.metricLabel, 'report-card-metric-label')}>{label}</p>
@@ -120,6 +120,7 @@ function GrowthChartTooltip({ active, payload, label, babyName, unit, t }: any) 
           );
         }
 
+        // Measurement stays visible even when the reference has no percentile at this age.
         lines.push(
           <p key="meas" className="font-semibold text-orange-600">
             {measPercentile !== undefined ? `${Number(measPercentile).toFixed(1)}%: ` : ''}
@@ -183,11 +184,12 @@ function GrowthChartCard({
       <div style={{ width: '100%', height: 220 }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData.points} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" className="growth-chart-grid" />            <XAxis
-    dataKey="ageMonths"
-    type="number"
-    domain={[0, 'dataMax']}
-    tick={{ fontSize: 11 }}
+            <CartesianGrid strokeDasharray="3 3" className="growth-chart-grid" />
+            <XAxis
+              dataKey="ageMonths"
+              type="number"
+              domain={[0, 'dataMax']}
+              tick={{ fontSize: 11 }}
               tickFormatter={(v: number) => v === 0 ? '0' : `${v}`}
               label={{ value: t('Age (months)'), position: 'insideBottom', offset: -5, fontSize: 11 }}
             />
@@ -214,7 +216,7 @@ function GrowthChartCard({
               />
             )}
 
-            {/* Percentile curves */}
+            {/* Percentile curves — keep explicit reference transitions disconnected */}
             {percentileLines.map(line => (
               <Line
                 key={line.dataKey}
