@@ -20,7 +20,7 @@ type ChartType = 'weight' | 'length' | 'headCircumference';
 
 const chartTypeConfig: { type: ChartType; label: string; icon: React.ReactNode }[] = [
   { type: 'weight', label: 'Weight', icon: <Scale aria-hidden="true" className="h-4 w-4" /> },
-  { type: 'length', label: 'Length', icon: <Ruler aria-hidden="true" className="h-4 w-4" /> },
+  { type: 'length', label: 'Length / Height', icon: <Ruler aria-hidden="true" className="h-4 w-4" /> },
   { type: 'headCircumference', label: 'Head', icon: <CircleDot aria-hidden="true" className="h-4 w-4" /> },
 ];
 
@@ -183,10 +183,11 @@ function GrowthChartCard({
       <div style={{ width: '100%', height: 220 }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData.points} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" className="growth-chart-grid" />
-            <XAxis
-              dataKey="ageMonths"
-              tick={{ fontSize: 11 }}
+            <CartesianGrid strokeDasharray="3 3" className="growth-chart-grid" />            <XAxis
+    dataKey="ageMonths"
+    type="number"
+    domain={[0, 'dataMax']}
+    tick={{ fontSize: 11 }}
               tickFormatter={(v: number) => v === 0 ? '0' : `${v}`}
               label={{ value: t('Age (months)'), position: 'insideBottom', offset: -5, fontSize: 11 }}
             />
@@ -224,6 +225,7 @@ function GrowthChartCard({
                 strokeWidth={line.width}
                 strokeDasharray={line.dash || undefined}
                 dot={false}
+                connectNulls={false}
                 isAnimationActive={!disableAnimation}
               />
             ))}
@@ -256,7 +258,7 @@ const GrowthSummarySection: React.FC<GrowthSummarySectionProps & { isPdfExport?:
   const chartTitle = (type: ChartType, standard: 'CDC' | 'WHO'): string => {
     const keys: Record<ChartType, { CDC: string; WHO: string }> = {
       weight: { CDC: 'Weight-for-age (CDC)', WHO: 'Weight-for-age (WHO)' },
-      length: { CDC: 'Length-for-age (CDC)', WHO: 'Length-for-age (WHO)' },
+      length: { CDC: 'Length/Height-for-age (CDC)', WHO: 'Length-for-age (WHO)' },
       headCircumference: { CDC: 'Head circ.-for-age (CDC)', WHO: 'Head circ.-for-age (WHO)' },
     };
     return keys[type][standard];
@@ -278,7 +280,7 @@ const GrowthSummarySection: React.FC<GrowthSummarySectionProps & { isPdfExport?:
       {/* Metric grid */}
       <div className={cn(s.metricGrid4)}>
         <MetricCard label={t('Weight')} metric={growth.weight} />
-        <MetricCard label={t('Length')} metric={growth.length} />
+        <MetricCard label={t(growthStandard === 'CDC' ? 'Length / Height' : 'Length')} metric={growth.length} />
         <MetricCard label={t('Head circ.')} metric={growth.headCircumference} />
         <div className={cn(s.metricCard, 'report-card-metric')}>
           <p className={cn(s.metricLabel, 'report-card-metric-label')}>{t('Growth velocity')}</p>
