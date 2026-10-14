@@ -5,6 +5,7 @@ import { Settings } from '@prisma/client';
 import { withAuthContext, AuthResult } from '../utils/auth';
 import { checkWritePermission } from '../utils/writeProtection';
 import { isValidGrowthStandard } from '@/src/utils/growthStandard';
+import { deploymentModeFromEnv } from '@/src/utils/growthReferenceRegistry';
 import { resolveFamilyScope } from '../utils/family-scope';
 
 // The family securityPin (login PIN) must never be returned to the client.
@@ -145,9 +146,9 @@ async function handlePut(req: NextRequest, authContext: AuthResult) {
           continue;
         }
         if (field === 'growthChartStandard') {
-          if (!isValidGrowthStandard(body[field])) {
+          if (!isValidGrowthStandard(body[field], deploymentModeFromEnv(process.env.DEPLOYMENT_MODE))) {
             return NextResponse.json<ApiResponse<null>>(
-              { success: false, error: 'growthChartStandard must be CDC or WHO' },
+              { success: false, error: 'growthChartStandard must be an available growth reference' },
               { status: 400 }
             );
           }

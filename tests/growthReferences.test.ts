@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   buildGrowthReferenceChartPoints,
   createGrowthReferenceSegments,
+  createStaticReferenceSegments,
   interpolateGrowthReferenceRow,
+  lmsTableToRows,
+  lmsValue,
   resolveGrowthReference,
   selectGrowthReferenceSegment,
   type GrowthReferenceRow,
@@ -252,5 +255,68 @@ describe('buildGrowthReferenceChartPoints', () => {
       .toBe('cdc-child-weight');
     expect(resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 240)).not.toBeNull();
     expect(resolveGrowthReference(cdcWeightSegments, 'CDC', 'weight', 240.001)).toBeNull();
+  });
+});
+
+describe('lmsTableToRows', () => {
+  it('reproduces the published WHO and CDC percentile columns from L, M and S', () => {
+    // documentation/who-wtageinf.csv, boys at birth
+    const [who] = lmsTableToRows([[0, 0.3487, 3.3464, 0.14602]]);
+    expect(who.p50).toBe(3.3464);
+    // Published columns were computed before L/M/S were rounded: agree to ~1e-4.
+    expect(who.p3).toBeCloseTo(2.507192, 3);
+    expect(who.p97).toBeCloseTo(4.350016, 3);
+    // documentation/statage.csv, boys at 24 months
+    const [cdc] = lmsTableToRows([[24, 0.941523967, 86.45220101, 0.040321528]]);
+    expect(cdc.p5).toBeCloseTo(80.72977321, 3);
+    expect(cdc.p95).toBeCloseTo(92.19687928, 3);
+  });
+
+  it('handles L = 0 with the log-normal limit', () => {
+    expect(lmsValue(0, 10, 0.1, 1)).toBeCloseTo(10 * Math.exp(0.1), 10);
+  });
+});
+
+describe('createStaticReferenceSegments', () => {
+  const siedp = [row(24, 300), row(30, 300), row(240, 300)];
+  const who = [row(0, 100), row(12, 100), row(24, 100)];
+
+  it('uses WHO under 2 years and the national table from its first age, with a visible break', () => {
+    const segments = createStaticReferenceSegments('IT-SIEDP', 'length', siedp, who);
+    expect(segments.map(s => [s.standard, s.effectiveFromMonths, s.effectiveToMonths, s.breakAfter])).toEqual([
+      ['IT-SIEDP', 0, 24, true],
+      ['IT-SIEDP', 24, null, false],
+    ]);
+    expect(segments[0].transitionAfter?.labelKey).toBe('WHO → national reference');
+    expect(resolveGrowthReference(segments, 'IT-SIEDP', 'length', 23.9)?.row.m).toBeCloseTo(123.9, 6);
+    expect(resolveGrowthReference(segments, 'IT-SIEDP', 'length', 24)?.row.m).toBe(324);
+  });
+
+  it('keeps WHO alone when the national table lacks the measurement (SIEDP head circumference)', () => {
+    const segments = createStaticReferenceSegments('IT-SIEDP', 'head_circumference', [], who);
+    expect(segments).toHaveLength(1);
+    expect(segments[0].effectiveToMonths).toBeNull();
+    expect(resolveGrowthReference(segments, 'IT-SIEDP', 'head_circumference', 30)).toBeNull();
+  });
+
+  it('uses a single segment from birth without an infant reference, and nothing outside the table', () => {
+    const segments = createStaticReferenceSegments('DE-KIGGS', 'weight', [row(4, 10), row(216, 10)]);
+    expect(segments).toHaveLength(1);
+    expect(segments[0].effectiveFromMonths).toBe(0);
+    expect(resolveGrowthReference(segments, 'DE-KIGGS', 'weight', 2)).toBeNull();
+    expect(createStaticReferenceSegments('DE-KIGGS', 'weight', [])).toEqual([]);
+  });
+
+  it('splits a table at a repeated age into length and standing-height segments', () => {
+    const lying = { ...row(36, 0), m: 97.5 };
+    const standing = { ...row(36, 0), m: 96.8 };
+    const segments = createStaticReferenceSegments('CN-2005', 'length', [row(30), lying, standing, row(42)]);
+    expect(segments.map(s => [s.effectiveFromMonths, s.effectiveToMonths, s.breakAfter])).toEqual([
+      [0, 36, true],
+      [36, null, false],
+    ]);
+    expect(segments[0].transitionAfter?.labelKey).toBe('Length → standing height');
+    expect(resolveGrowthReference(segments, 'CN-2005', 'length', 35.9)?.segment.id).toBe('cn-2005-length');
+    expect(resolveGrowthReference(segments, 'CN-2005', 'length', 36)?.row.m).toBe(96.8);
   });
 });

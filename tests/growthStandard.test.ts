@@ -151,3 +151,26 @@ describe('resolveGrowthStandard', () => {
     }
   });
 });
+
+describe('registry references', () => {
+  it('accepts every registry id, and normalizes case', () => {
+    expect(isValidGrowthStandard('IT-SIEDP')).toBe(true);
+    expect(resolveSelectedGrowthStandard('it-siedp', 'CDC')).toEqual({ selected: 'IT-SIEDP', source: 'baby' });
+  });
+
+  it('keeps references without an age limit at every age', () => {
+    expect(effectiveGrowthStandard('IT-SIEDP', 0)).toBe('IT-SIEDP');
+    expect(effectiveGrowthStandard('DE-KIGGS', 200)).toBe('DE-KIGGS');
+  });
+
+  it('treats a self-hosted-only reference as unset in SaaS mode', () => {
+    expect(isValidGrowthStandard('IT-SIEDP', 'saas')).toBe(false);
+    expect(isValidGrowthStandard('CN-2005', 'saas')).toBe(true);
+    expect(resolveGrowthStandard('IT-SIEDP', 'WHO', 12, 'saas')).toEqual({
+      selected: 'WHO', source: 'family', effective: 'WHO',
+    });
+    expect(resolveGrowthStandard(null, 'DE-KIGGS', 12, 'saas')).toEqual({
+      selected: 'CDC', source: 'default', effective: 'CDC',
+    });
+  });
+});

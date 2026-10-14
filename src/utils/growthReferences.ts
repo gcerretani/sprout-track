@@ -190,6 +190,103 @@ export function createGrowthReferenceSegments(
   }];
 }
 
+/** One LMS table row as stored in src/data/growth-references/*.json: [ageMonths, L, M, S]. */
+export type LmsTableRow = readonly [number, number, number, number];
+
+// z-scores of the percentile columns shared by every reference row.
+const PERCENTILE_Z = {
+  p3: -1.880794,
+  p5: -1.644854,
+  p10: -1.281552,
+  p25: -0.67449,
+  p50: 0,
+  p75: 0.67449,
+  p90: 1.281552,
+  p95: 1.644854,
+  p97: 1.880794,
+} as const;
+
+/** Value at z-score `z` for LMS parameters (Cole's method). */
+export function lmsValue(l: number, m: number, s: number, z: number): number {
+  return l === 0 ? m * Math.exp(s * z) : m * Math.pow(1 + l * s * z, 1 / l);
+}
+
+/** Expand LMS-only table rows into full reference rows with percentile columns. */
+export function lmsTableToRows(table: readonly LmsTableRow[]): GrowthReferenceRow[] {
+  return table.map(([ageMonths, l, m, s]) => {
+    const row = { ageMonths, l, m, s } as GrowthReferenceRow;
+    for (const [key, z] of Object.entries(PERCENTILE_Z)) {
+      row[key as keyof typeof PERCENTILE_Z] = lmsValue(l, m, s, z);
+    }
+    return row;
+  });
+}
+
+// A repeated age in a static table marks a switch between two curves at that
+// age, e.g. recumbent length → standing height (China, 36 months).
+function splitAtRepeatedAges(rows: readonly GrowthReferenceRow[]): GrowthReferenceRow[][] {
+  const groups: GrowthReferenceRow[][] = [];
+  for (const row of rows) {
+    const current = groups[groups.length - 1];
+    if (!current || current[current.length - 1].ageMonths === row.ageMonths) groups.push([row]);
+    else current.push(row);
+  }
+  return groups;
+}
+
+/**
+ * Segments for a reference whose data lives in a static table. When the
+ * reference declares an infant reference (SIEDP: WHO under 2 years), those rows
+ * cover the ages before the static table starts, with a visible break at the
+ * hand-over. Ages the tables don't cover get no percentile.
+ */
+export function createStaticReferenceSegments(
+  standard: GrowthStandard,
+  measurement: GrowthReferenceMeasurement,
+  staticRows: readonly GrowthReferenceRow[],
+  infantRows: readonly GrowthReferenceRow[] = [],
+): GrowthReferenceSegment[] {
+  const prefix = `${standard.toLowerCase()}-${measurement}`;
+  const groups = splitAtRepeatedAges(staticRows);
+  const staticStart = groups.length > 0 ? groups[0][0].ageMonths : null;
+  const segments: GrowthReferenceSegment[] = [];
+
+  if (infantRows.length > 0 && (staticStart === null || staticStart > 0)) {
+    segments.push({
+      id: `${prefix}-infant`,
+      standard,
+      measurement,
+      effectiveFromMonths: 0,
+      effectiveToMonths: staticStart,
+      breakAfter: staticStart !== null,
+      transitionAfter: staticStart === null ? undefined : {
+        labelKey: 'WHO → national reference',
+        descriptionKey: 'At 2 years the chart switches from the WHO standards to the national reference.',
+      },
+      rows: infantRows,
+    });
+  }
+
+  groups.forEach((rows, index) => {
+    const next = groups[index + 1];
+    segments.push({
+      id: index === 0 ? prefix : `${prefix}-${index + 1}`,
+      standard,
+      measurement,
+      effectiveFromMonths: index === 0 && infantRows.length === 0 ? 0 : rows[0].ageMonths,
+      effectiveToMonths: next ? next[0].ageMonths : null,
+      breakAfter: next !== undefined,
+      transitionAfter: next === undefined ? undefined : {
+        labelKey: 'Length → standing height',
+        descriptionKey: 'At this age the reference switches from recumbent length to standing height.',
+      },
+      rows,
+    });
+  });
+
+  return segments;
+}
+
 /**
  * Select the single reference segment whose effective policy range contains
  * the requested age. Ambiguous or unsupported configurations fail closed.

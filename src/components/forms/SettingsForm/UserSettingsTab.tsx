@@ -15,6 +15,7 @@ import { useLocalization } from '@/src/context/localization';
 import NotificationSettings from './NotificationSettings';
 import { Baby } from '@prisma/client';
 import { useUnit } from '@/src/hooks/useUnit';
+import { growthReferenceOptionLabel, listGrowthReferences } from '@/src/utils/growthReferenceRegistry';
 
 interface UserSettingsTabProps {
   settings: Settings | null;
@@ -169,19 +170,19 @@ export default function UserSettingsTab({
           <Label className="form-label" htmlFor={`${idPrefix}-growth-standard`}>{t('Standard')}</Label>
           <Select
             value={settings?.growthChartStandard || 'CDC'}
-            onValueChange={(value: 'CDC' | 'WHO') => onSettingsChange({ growthChartStandard: value })}
+            onValueChange={(value: string) => onSettingsChange({ growthChartStandard: value })}
             disabled={loading}
           >
             <SelectTrigger id={`${idPrefix}-growth-standard`}>
               <SelectValue placeholder={t("Select standard")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="CDC">
-                CDC
-              </SelectItem>
-              <SelectItem value="WHO">
-                WHO — {t('0–24 months')}
-              </SelectItem>
+              {/* Until the deployment mode is known, offer only references allowed everywhere. */}
+              {listGrowthReferences(deploymentConfig?.deploymentMode === 'selfhosted' ? 'selfhosted' : 'saas').map(reference => (
+                <SelectItem key={reference.id} value={reference.id}>
+                  {growthReferenceOptionLabel(reference, t)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

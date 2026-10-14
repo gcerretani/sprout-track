@@ -198,7 +198,12 @@ Reference data tables for growth chart percentile calculations:
 - `CdcChildWeightForAge` — CDC 2–20 year weight-for-age reference data (24 through 240 months)
 - `CdcStatureForAge` — CDC 2–20 year standing stature-for-age reference data (24 through 240 months)
 
-All use the LMS method (L, M, S parameters) with pre-calculated percentile columns (P3-P97). Growth-reference selection is age-bounded: CDC weight and length/stature transition explicitly at 24 months, while head-circumference percentiles stop when the infant reference data ends rather than extrapolating the final LMS row. The policy lives in `src/utils/growthReferences.ts` (shared by `/api/cdc-growth-data` and the monthly report); families on WHO switch to CDC after 24 months (`src/utils/growthStandard.ts`). The 2–20 tables are seeded by `prisma/seed.ts` and included in database backups (`app/api/utils/db-backup.ts`).
+All use the LMS method (L, M, S parameters) with pre-calculated percentile columns (P3-P97). Growth-reference selection is age-bounded: CDC weight and length/stature transition explicitly at 24 months, while head-circumference percentiles stop when the infant reference data ends rather than extrapolating the final LMS row. The policy lives in `src/utils/growthReferences.ts` (shared by `/api/cdc-growth-data` and the monthly report); families on WHO switch to CDC after 24 months (`src/utils/growthStandard.ts`).
+
+Selectable references are listed in `src/utils/growthReferenceRegistry.ts` (id, label, citation, licence note, availability).
+- `Baby.growthReference` (nullable) overrides the family default `Settings.growthChartStandard`. Both store a registry id.
+- National references beyond CDC/WHO are static LMS tables in `src/data/growth-references/` (see the README there for sources and licences). They are served by `app/api/utils/growth-reference-data.ts` without database tables.
+- References marked `availability: 'selfhosted'` are rejected by the APIs and hidden in the UI when `DEPLOYMENT_MODE=saas`. The 2–20 tables are seeded by `prisma/seed.ts` and included in database backups (`app/api/utils/db-backup.ts`).
 
 ## External Integration
 

@@ -6,9 +6,10 @@ import { formatForResponse } from '../../../../utils/timezone';
 import { toCdcWeightKg, fromCdcWeightKg } from '@/src/utils/weightUnits';
 import { isDirtyDiaper } from '@/src/utils/diaperStats';
 import { calculateGrowthAgeMonths, resolveGrowthStandard } from '@/src/utils/growthStandard';
+import { deploymentModeFromEnv } from '@/src/utils/growthReferenceRegistry';
+import { loadGrowthReferenceSegments } from '../../../../utils/growth-reference-data';
 import {
   buildGrowthReferenceChartPoints,
-  createGrowthReferenceSegments,
   resolveGrowthReference,
   type GrowthReferenceMeasurement,
   type GrowthReferenceSegment,
@@ -244,7 +245,12 @@ async function handleGet(req: NextRequest, authContext: AuthResult): Promise<Nex
     effective: growthStandard,
     selected: growthStandardSelected,
     source: growthStandardSource,
-  } = resolveGrowthStandard(baby.growthReference, familySettings?.growthChartStandard, reportAgeMonths);
+  } = resolveGrowthStandard(
+    baby.growthReference,
+    familySettings?.growthChartStandard,
+    reportAgeMonths,
+    deploymentModeFromEnv(process.env.DEPLOYMENT_MODE),
+  );
 
   // Unit conversion helpers (weight math shared with GrowthChart via weightUnits)
   function toCdcUnit(
@@ -266,55 +272,17 @@ async function handleGet(req: NextRequest, authContext: AuthResult): Promise<Nex
     return value;
   }
 
-  // Pre-fetch all growth reference rows for all 3 measurement types (for both metrics and charts)
-  const growthWhere = sex ? { sex } : undefined;
-  const growthOrder = { orderBy: { ageMonths: 'asc' } as const };
-
+  // Pre-fetch growth reference segments for all 3 measurement types (for both metrics and charts)
   let weightReferenceSegments: GrowthReferenceSegment[] = [];
   let lengthReferenceSegments: GrowthReferenceSegment[] = [];
   let headReferenceSegments: GrowthReferenceSegment[] = [];
 
   if (sex) {
-    if (growthStandard === 'WHO') {
-      const [weightRows, lengthRows, headRows] = await Promise.all([
-        prisma.whoWeightForAge.findMany({ where: growthWhere, ...growthOrder }),
-        prisma.whoLengthForAge.findMany({ where: growthWhere, ...growthOrder }),
-        prisma.whoHeadCircumferenceForAge.findMany({ where: growthWhere, ...growthOrder }),
-      ]);
-      weightReferenceSegments = createGrowthReferenceSegments('WHO', 'weight', weightRows);
-      lengthReferenceSegments = createGrowthReferenceSegments('WHO', 'length', lengthRows);
-      headReferenceSegments = createGrowthReferenceSegments(
-        'WHO',
-        'head_circumference',
-        headRows,
-      );
-    } else {
-      const [infantWeightRows, childWeightRows, infantLengthRows, statureRows, headRows] =
-        await Promise.all([
-          prisma.cdcWeightForAge.findMany({ where: growthWhere, ...growthOrder }),
-          prisma.cdcChildWeightForAge.findMany({ where: growthWhere, ...growthOrder }),
-          prisma.cdcLengthForAge.findMany({ where: growthWhere, ...growthOrder }),
-          prisma.cdcStatureForAge.findMany({ where: growthWhere, ...growthOrder }),
-          prisma.cdcHeadCircumferenceForAge.findMany({ where: growthWhere, ...growthOrder }),
-        ]);
-      weightReferenceSegments = createGrowthReferenceSegments(
-        'CDC',
-        'weight',
-        infantWeightRows,
-        childWeightRows,
-      );
-      lengthReferenceSegments = createGrowthReferenceSegments(
-        'CDC',
-        'length',
-        infantLengthRows,
-        statureRows,
-      );
-      headReferenceSegments = createGrowthReferenceSegments(
-        'CDC',
-        'head_circumference',
-        headRows,
-      );
-    }
+    [weightReferenceSegments, lengthReferenceSegments, headReferenceSegments] = await Promise.all([
+      loadGrowthReferenceSegments(growthStandard, 'weight', sex),
+      loadGrowthReferenceSegments(growthStandard, 'length', sex),
+      loadGrowthReferenceSegments(growthStandard, 'head_circumference', sex),
+    ]);
   }
 
   function getGrowthReferenceSegments(

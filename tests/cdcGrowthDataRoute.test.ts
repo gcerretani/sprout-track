@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import type { GrowthReferenceRow } from '@/src/utils/growthReferences';
 
@@ -128,5 +128,45 @@ describe('GET /api/cdc-growth-data', () => {
     });
     expect(dbMocks.cdcWeightForAge).not.toHaveBeenCalled();
     expect(dbMocks.cdcChildWeightForAge).not.toHaveBeenCalled();
+  });
+
+  describe('registry references and deployment mode', () => {
+    afterEach(() => vi.unstubAllEnvs());
+
+    it('composes SIEDP from WHO under 2 years and the static table after', async () => {
+      dbMocks.whoLengthForAge.mockResolvedValue([row(0, 50), row(24, 50)]);
+
+      const { response, body } = await call('length', 'IT-SIEDP');
+
+      expect(response.status).toBe(200);
+      expect(body.data.segments.map((segment: any) => [segment.id, segment.effectiveFromMonths, segment.effectiveToMonths]))
+        .toEqual([
+          ['it-siedp-length-infant', 0, 24],
+          ['it-siedp-length', 24, null],
+        ]);
+      expect(body.data.segments[1].rows[0]).toMatchObject({ ageMonths: 24, m: 88.8 });
+      expect(dbMocks.cdcLengthForAge).not.toHaveBeenCalled();
+    });
+
+    it('serves static references without touching the database', async () => {
+      const { body } = await call('weight', 'cn-2005');
+
+      expect(body.data.standard).toBe('CN-2005');
+      expect(body.data.segments[0].rows.length).toBeGreaterThan(20);
+      Object.values(dbMocks).forEach(mock => expect(mock).not.toHaveBeenCalled());
+    });
+
+    it('refuses self-hosted-only references in SaaS mode but serves open ones', async () => {
+      vi.stubEnv('DEPLOYMENT_MODE', 'saas');
+
+      expect((await call('weight', 'IT-SIEDP')).response.status).toBe(400);
+      expect((await call('weight', 'DE-KIGGS')).response.status).toBe(400);
+      expect((await call('weight', 'CN-2005')).response.status).toBe(200);
+      expect((await call('weight', 'WHO')).response.status).toBe(200);
+    });
+
+    it('rejects unknown references', async () => {
+      expect((await call('weight', 'FENTON')).response.status).toBe(400);
+    });
   });
 });
