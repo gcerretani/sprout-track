@@ -247,6 +247,32 @@ None of these has machine-readable LMS under a clearly permissive licence.
 | Cerebral palsy | Brooks 2011 (by GMFCS level) | No, percentile charts only | ❓ |
 | Fragile X, Cri-du-chat | no established LMS reference found | No | n/a |
 
+### 4.12 Additional CDC data (public domain)
+
+These CDC 2000 files are public domain and use the same LMS format as the CSVs the app already ships. They were checked against public GitHub mirrors (`growthcleanr`, `SimKid`), because cdc.gov was unreachable.
+- `bmiagerev.csv`: BMI-for-age, 24–240.5 months.
+- `wtleninf.csv`: weight-for-recumbent-length, 45–103.5 cm.
+- `wtstat.csv`: weight-for-stature, 77–121.5 cm.
+
+The CDC 2022 extended BMI (above the 95th percentile) is derived from `bmiagerev.csv` with a published sigma formula. The CDC's own `CDCAnthro` package implements it under Apache-2.0.
+
+CDC publishes no head-circumference reference beyond 36 months.
+
+Using these files needs:
+- BMI from paired weight and height measurements;
+- for the weight-for-length/stature tables, a chart whose x-axis is length rather than age.
+
+### 4.13 What other apps do
+
+- **Baby Daybook** (Baltapis UAB, Lithuania) **[snippet]**:
+  - Offers WHO, CDC and CDC Down syndrome charts, and corrects age for preterm babies.
+  - Lists "chromosomal disorders" without naming them.
+  - No source or licence citation was found for its chart data.
+  - It does not declare itself a medical device: it is listed under "Medical" on the App Store, and its blog says it is not medical advice.
+- **Child Growth Tracker** (Android) **[snippet]** adds Dutch, Belgian, Norwegian, Chinese, Japanese, Spanish and German charts, also without licence statements.
+
+Market practice is to include such references without stating licences. This shows how the risk is perceived; it does not establish that the use is lawful.
+
 ## 5. Architecture implications
 
 The issue asks for an extensible reference registry and no silent switches. From this research and from `rcpchgrowth`'s design (a dispatch on a reference string, with per-reference loaders and explicit age thresholds), the registry entry needs at least:
@@ -267,6 +293,22 @@ Rules to keep:
 - `app/api/utils/db-backup.ts` currently omits the WHO tables. Every registry table must also be added there.
 - **Never copy data out of GPL/AGPL packages** (`childsds`, `AGD`, `nlreferences`, `rcpchgrowth`, `gigs`). Copyleft obligations would conflict with the Sprout Track licence, and the packages don't grant rights to the underlying data anyway. Transcribe from the primary publication under its own licence, and use the packages only to cross-check values.
 - **Not every reference is LMS.** France uses BCPE, INTERGROWTH-21st uses skew-t, Sweden uses QEPS. The registry should declare each entry's method, so that a non-LMS engine can be added later without pretending these are LMS.
+
+### Availability tiers (implemented in fork PR #20)
+
+| Tier | Examples | Data in repo | Offered where |
+|---|---|---|---|
+| 1. Open | CDC (public domain), China (CC BY), Swiss 2025, INeS Spada | yes | SaaS and self-hosted |
+| 2. Non-commercial, or risk the maintainers prefer to keep out of the SaaS | SIEDP, KiGGS, Flanders, TNO; Korea and Japan articles (NC) | yes | self-hosted only (`availability: 'selfhosted'`) |
+| 3. Redistribution prohibited | UK90, Fenton, France 2018 | **no** | at most a future admin-imported custom reference |
+
+Enforcement relies on `DEPLOYMENT_MODE`, which already gates other SaaS-only features:
+- The registry entry declares `availability`.
+- The APIs reject a tier-2 reference in SaaS mode.
+- The UI hides it, defaulting to the restrictive mode while the mode is unknown.
+- A stored tier-2 value resolves as "inherit".
+
+Tier 2 protects commercial use (b), not redistribution (a). The data still ships in the public repo and image.
 
 ## 6. Recommendation
 
@@ -295,6 +337,8 @@ Rules to keep:
 - Should SIEDP be pursued as the first national reference (Italian contributors available to contact SIEDP)?
 - Are national references whose licence is permissive but which serve smaller user groups (China, South Korea) worth adding before the WHO and SIEDP questions are settled?
 - Is it acceptable to ship a reference transcribed from a CC BY article, with attribution in the UI and PDF?
+- Is a feature difference between the SaaS and self-hosted builds (tier-2 references only in self-hosted) acceptable as a product decision?
+- Should computing percentiles raise medical-device questions for the SaaS (EU MDR 2017/745)? RCPCH registered its growth API as a medical device.
 
 ## Sources opened directly
 
