@@ -27,6 +27,8 @@ export interface SectionProps {
 export interface GrowthSummarySectionProps extends SectionProps {
   growth: MonthlyReport['growth'];
   growthStandard: 'CDC' | 'WHO';
+  /** Standard chosen for the baby before the 24-month WHO→CDC fallback; defaults to growthStandard. */
+  growthStandardSelected?: 'CDC' | 'WHO';
   babyName: string;
   isPdfExport?: boolean;
 }

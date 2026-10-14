@@ -225,6 +225,7 @@
   "Are you sure you want to revoke this API key? This cannot be undone.": "Weet je zeker dat je deze API-sleutel wilt intrekken? Dit kan niet ongedaan worden gemaakt.",
   "Arts & Crafts": "Knutselen",
   "Associated Contacts": "Gekoppelde Contacten",
+  "At 24 months, CDC switches from recumbent length to standing height; standing height is typically about 0.8 cm lower.": "Bij 24 maanden schakelt de CDC-referentie over van liggende lengte naar staande lengte; staand gemeten lengte is doorgaans ongeveer 0,8 cm lager.",
   "At least 8 characters": "Minimaal 8 tekens",
   "Attach images": "Afbeeldingen bijvoegen",
   "Attach up to 4 photos — they'll show on the timeline and in the gallery.": "Voeg tot 4 foto's toe — ze worden getoond op de tijdlijn en in de galerij.",
@@ -594,6 +595,7 @@
   "Decrease left amount": "Hoeveelheid links verlagen",
   "Decrease right amount": "Hoeveelheid rechts verlagen",
   "Default": "Standaard",
+  "Default growth reference for percentile calculations. Each baby can override it in their profile.": "Standaard groeireferentie voor percentielberekeningen. Elk kind kan deze in zijn profiel aanpassen.",
   "Default locations cannot be deleted": "Standaardlocaties kunnen niet worden verwijderd",
   "Default locations cannot be renamed or merged": "Standaardlocaties kunnen niet worden hernoemd of samengevoegd",
   "Default Password:": "Standaardwachtwoord:",
@@ -976,6 +978,7 @@
   "Family": "Familie",
   "Family & people": "Familie & personen",
   "Family Caretakers": "Familieverzorgers",
+  "Family default": "Gezinsstandaard",
   "Family Information": "Familie-informatie",
   "Family link": "Familielink",
   "Family Management": "Familiebeheer",
@@ -1291,6 +1294,7 @@
   "Left:": "Links:",
   "Length": "Lengte",
   "Length / Height": "Lengte",
+  "Length → standing height": "Liggende lengte → staande lengte",
   "Length-for-age (CDC)": "Lengte-naar-leeftijd (CDC)",
   "Length-for-age (WHO)": "Lengte-naar-leeftijd (WHO)",
   "Length/Height-for-age (CDC)": "Lengte-naar-leeftijd (CDC)",
@@ -2698,6 +2702,7 @@
   "What's happening in this photo?": "Wat gebeurt er op deze foto?",
   "What's on your mind?": "Wat houdt je bezig?",
   "WHO Growth Chart for": "WHO Groeicurve voor",
+  "WHO is selected, but CDC is used after 24 months.": "WHO is geselecteerd, maar na 24 maanden wordt CDC gebruikt.",
   "Wipe Down": "Opfrisbeurt",
   "with failures": "met mislukkingen",
   "with shampoo": "met shampoo",
@@ -2757,7 +2762,5 @@
   "Your payment was processed, but we encountered an issue activating your account. Please contact support or try logging out and back in.": "Uw betaling is verwerkt, maar we ondervonden een probleem bij het activeren van uw account. Neem contact op met support of probeer uit te loggen en opnieuw in te loggen.",
   "Your Personal PIN (6-10 digits)": "Uw persoonlijke PIN (6-10 cijfers)",
   "Your Personal Profile": "Uw persoonlijk profiel",
-  "Zero “did anyone change him?” texts sent today.": "Nul „heeft iemand hem al verschoond?”-berichtjes vandaag verstuurd.",
-  "Length → standing height": "Liggende lengte → staande lengte",
-  "At 24 months, CDC switches from recumbent length to standing height; standing height is typically about 0.8 cm lower.": "Bij 24 maanden schakelt de CDC-referentie over van liggende lengte naar staande lengte; staand gemeten lengte is doorgaans ongeveer 0,8 cm lager."
+  "Zero “did anyone change him?” texts sent today.": "Nul „heeft iemand hem al verschoond?”-berichtjes vandaag verstuurd."
 }

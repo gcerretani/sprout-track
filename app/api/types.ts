@@ -97,6 +97,7 @@ export interface BabyCreate {
   pumpWarningTime?: string;
   feedTimerFrom?: string;
   feedTimerTypes?: string | null;
+  growthReference?: string | null;
 }
 
 export interface BabyUpdate extends Partial<BabyCreate> {
@@ -686,7 +687,9 @@ export interface MonthlyReport {
     daysTracked: number;
     isCurrentMonth: boolean;
   };
-  growthStandard: 'CDC' | 'WHO';
+  growthStandard: 'CDC' | 'WHO'; // standard actually used
+  growthStandardSelected: 'CDC' | 'WHO'; // baby override or family default, before the 24-month WHO→CDC fallback
+  growthStandardSource: 'baby' | 'family' | 'default';
   growth: {
     weight: GrowthMetric | null;
     length: GrowthMetric | null;

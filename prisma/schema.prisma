@@ -253,6 +253,7 @@ model Baby {
   pumpWarningTime   String    @default("03:00") // Default 3 hours
   feedTimerFrom     String    @default("start") // "start" | "end" - count feed timer from start or end of feeding
   feedTimerTypes    String? // JSON array of feed categories that reset the feed timer (issue #225); null = all feeds count
+  growthReference   String? // Growth chart reference override (e.g. "CDC" | "WHO"); null = inherit Settings.growthChartStandard
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   deletedAt         DateTime?

@@ -19,7 +19,7 @@ import { useLocalization } from '@/src/context/localization';
 import { useTimezone } from '@/app/context/timezone';
 import { formatDateLong } from '@/src/utils/dateFormat';
 import { toCdcWeightKg, fromCdcWeightKg, weightUnitLabel, formatChartValue } from '@/src/utils/weightUnits';
-import { calculateGrowthAgeMonths, effectiveGrowthStandard } from '@/src/utils/growthStandard';
+import { calculateGrowthAgeMonths, resolveGrowthStandard } from '@/src/utils/growthStandard';
 import {
   buildGrowthReferenceChartPoints,
   resolveGrowthReference,
@@ -323,7 +323,9 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
     return calculateGrowthAgeMonths(selectedBaby.birthDate.toString(), new Date());
   }, [selectedBaby]);
 
-  const effectiveStandard = effectiveGrowthStandard(
+  // The baby's own override wins over the family default; WHO still falls back to CDC past 24 months.
+  const { selected: selectedStandard, effective: effectiveStandard } = resolveGrowthStandard(
+    selectedBaby?.growthReference,
     settings?.growthChartStandard,
     babyAgeMonthsForStandard,
   );
@@ -968,6 +970,11 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
         <p className={cn(growthChartStyles.legendSubtext, "growth-chart-legend-subtext")}>
           {t('Percentile lines show how your baby compares to other children of the same age and sex. The 50th percentile represents the median.')}
         </p>
+        {selectedStandard !== effectiveStandard && (
+          <p className={cn(growthChartStyles.legendSubtext, "growth-chart-legend-subtext")}>
+            {t('WHO is selected, but CDC is used after 24 months.')}
+          </p>
+        )}
       </div>
 
       {/* No measurements message */}
