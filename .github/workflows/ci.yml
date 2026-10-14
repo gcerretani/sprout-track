@@ -1,0 +1,48 @@
+name: CI
+
+# Fork-only test pipeline: type-check, unit tests and translation-file checks.
+# Runs on every pull request (whatever its base) and on pushes to `integration`.
+on:
+  pull_request:
+  push:
+    branches: [integration]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Generate Prisma clients
+        run: |
+          npm run prisma:generate
+          npm run prisma:generate:log
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Translation files are complete and sorted
+        run: |
+          node scripts/check-missing-translations.js
+          git diff --exit-code -- src/localization/translations
