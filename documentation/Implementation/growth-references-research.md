@@ -3,12 +3,14 @@
 Research for the "additional growth standards" part of
 [Oak-and-Sprout/sprout-track#292](https://github.com/Oak-and-Sprout/sprout-track/issues/292).
 Per-baby reference selection (steps 1–4 of the issue) is implemented separately.
+It also covers the national and condition-specific references listed in
+[#269](https://github.com/Oak-and-Sprout/sprout-track/issues/269).
 This document only decides **which datasets could be added next, and under what conditions**.
 
 > **Not legal advice.** Licensing notes record what the sources say. Treat every "unclear" verdict as "ask the rights holder before shipping".
 >
 > **Verification status.** This research was done from a sandbox that could not open most primary sites (who.int, cdc.gov, rcpch.ac.uk, intergrowth21, journals). The following sources were **opened directly**:
-> - GitHub repositories: WHO `anthro` / `anthroplus`, RCPCH `rcpchgrowth-python`, `digital-growth-charts-documentation`, `growth-references`, LSHTM `gigs`, Tim Cole `sitar`, and the KCH eGrowth repository.
+> - GitHub repositories: WHO `anthro` / `anthroplus`, RCPCH `rcpchgrowth-python`, `digital-growth-charts-documentation`, `growth-references`, LSHTM `gigs`, Tim Cole `sitar`, the KCH eGrowth repository, and the R packages `childsds`, `AGD` and `growthcharts/nlreferences`.
 >
 > Everything else comes from search-engine extracts of the cited URLs and is marked **[snippet]**. Re-read those pages before relying on them.
 
@@ -50,6 +52,22 @@ Licence verdicts use: ✅ allowed · ❓ unclear or permission needed · ⛔ not
 | **UK-WHO** (UK90 + WHO) | UK, 23 weeks GA to 20 y | weight, length/height, HC, BMI | LMS JSON (`rcpchgrowth`), `sitar::uk90` | gestational, then corrected | ⛔/❓ (MRC licence) | ⛔/❓ | Blocked: licence. |
 | **INTERGROWTH-21st** | newborn 24–42 weeks GA; preterm postnatal 27–64 weeks PMA | weight, length, HC | GAMLSS/skew-t and mean/SD equations, **no LMS** | gestational / PMA | ❓ | ❓ | High: different model and age basis. |
 | **Fenton 2013** (preterm) | meta-analysis, 22–50 weeks PMA | weight, length, HC | LMS **by licence only** | gestational / PMA | ⛔ | ⛔ (paid licence) | Blocked: licence. |
+
+### 3.2 National references from #269
+
+| Country / dataset | Ages | Measures | Machine-readable params | (a) | (b) | Notes |
+|---|---|---|---|---|---|---|
+| **France** AFPA–CRESS/Inserm–CGM 2018 (Heude 2019) | 1 mo–18 y | weight, height, HC, BMI | none found; GAMLSS **BCPE**, not LMS | ⛔ | ⛔ | "non libres de droit" **[snippet]**. Proprietary, licensed via CGM. |
+| **Germany** KiGGS 2003–06 (RKI, Neuhauser 2013) | 0–17 y | height, weight, BMI, HC, more | `childsds::kiggs.ref` (GPL-3 package) | ❓ | ❓ | "© Robert Koch-Institut", no CC licence found **[snippet]**. |
+| **Germany** Kromeyer-Hauschild 2001 | 0–18 y | BMI | `childsds::kro.ref` | ❓ | ❓ | Springer article. |
+| **Norway** Bergen Growth Study (Júlíusson 2013) | 0–19 y | length/height, weight, BMI, HC | none found (charts only) | ❓ | ❓ | Paywalled T&F; data on request. |
+| **Sweden** Wikland 2002; GrowUp 1990 (2020/21) | 0–18 y | height, weight, HC; weight, BMI | none found; height uses QEPS, not LMS | ❓ | ❓ | Wiley; licence of the 2020 LMS paper unverified. |
+| **Netherlands** TNO 1997/2009, incl. Turkish- and Moroccan-origin | 0–21 y | height, weight, BMI, HC | `AGD` (GPL-2/3), `nlreferences` (AGPL-3), plain-text LMS | ❓ | ❓ | Charts "Voor persoonlijk gebruik" **[snippet]**. Ask TNO. |
+| **South Korea** KNGC 2017 | WHO 0–35 mo; Korean 3–18 y | weight, height, BMI, HC | NHIS LMS CSV on data.go.kr **[snippet]** | ✅? | ✅? | NHIS dataset "제한 없음" (no restriction) **[snippet]**. The article itself is CC BY-NC. |
+| **Japan** Kato 2014 (*Acta Paediatr*) | 0–~6 y | length/height, weight, HC, chest | LMS in article tables | ❓ | ⛔? | Possibly CC BY-NC (unverified). |
+| **Japan** JSPE 2000 (Isojima 2016) | 0–17 y | height, weight | PDFs only | ⛔ | ⛔ | JSPE copyright; reproduction prohibited **[snippet]**. |
+| **China** Zong & Li 2013 (*PLOS ONE*) | 0–18 y (HC 0–7 y) | weight, length/height, BMI, HC, weight-for-length/height | LMS in article tables; `childsds::zong13.ref` | ✅ | ✅ | PLOS ONE articles are CC BY **[snippet]**. Transcribe from the article, not from the GPL package. |
+| **India** IAP 2015 (Khadilkar) | 5–18 y (WHO below 5) | height, weight, BMI | LMS "can be obtained from the author" **[snippet]** | ⛔ | ⛔ | IAP copyright; ask the authors. |
 
 ## 4. Notes per dataset
 
@@ -108,19 +126,35 @@ Licence verdicts use: ✅ allowed · ❓ unclear or permission needed · ⛔ not
 - The LMS values are in the paywalled article. No CSV or XLS was found.
 - Printable PDFs: [italia-maschi.pdf](https://www.endocrinologiaoggi.it/wp-content/uploads/2012/04/italia-maschi.pdf) **[snippet]**.
 
-**Licence:** there is no SIEDP statement on reuse in software; the article is Springer copyright.
+- **A machine-readable copy exists** in the R package [`childsds`](https://github.com/cran/childsds) (GPL-3, opened directly): dataset `italian.ref`, documented as "Parameters derived from Italian children", citing Cacciari 2006.
+  - It covers height, weight and BMI for Italy, North and South, both sexes.
+  - Ages run 2–18 y in half-year steps, then 19 and 20.
+  - M is rounded to 0.1 and S to 3 decimals, which suggests the values were transcribed from the printed tables.
+  - The GPL covers the package, not the rights to the published values. **Do not copy from it.** Use it only to cross-check a licensed transcription.
+- There is no SIEDP head-circumference reference. The only Italian one found is Cortinovis, Bossi & Milani 1993, which runs to 3 years **[snippet]**.
+- The SIEDP "Growth Calculator 3" (made by Weboriented with SIEDP, funded by Eli Lilly) uses these curves. Whether it exposes the LMS values was not checked **[snippet]**.
+
+**What Italian clinicians use:**
+- The 2018 SICuPP–SIEDP–SIP consensus (*Area Pediatrica* 19(1):33–37) recommends **WHO under 2 years and SIEDP from 2 years** **[snippet]**.
+- Sprout Track already ships WHO 0–24 months, so SIEDP would complete the Italian pathway.
+
+**Licence:** there is no SIEDP statement on reuse in software. The article was published by Kurtis in 2006; the journal now belongs to SIE/Springer **[snippet]**.
 
 **Verdict:**
 - (a) ❓ and (b) ❓.
-- Ask SIEDP (segreteria / Consiglio Direttivo), the authors (S. Milani, A. Cicognani) and Springer.
-- This is the most relevant national reference for Italian users. There is no SIEDP 0–2 year chart; WHO is normally used below 2 years.
+- Ask SIEDP (segreteria / Consiglio Direttivo via siedp.it), the authors (Cacciari's group in Bologna; S. Milani in Milan) and Springer/SIE.
+- This is the most relevant national reference for Italian users, and **the first permission request worth making**.
 
 ### 4.4 INeS Italian neonatal charts (Bertino 2010; Spada et al., *Ital J Pediatr* 2024;50:89)
 
 - Size-at-birth reference for 23–42 weeks of gestational age.
-- Spada 2024 publishes birthweight LMS by gestational age in an open-access supplement (Table A1) under CC BY 4.0, with a CC0 data waiver ([article](https://link.springer.com/article/10.1186/s13052-024-01660-7) **[snippet]**).
+- **Bertino 2010** (*JPGN* 51:353): weight, length and HC, by sex and by first-born vs later-born. About 45,000 singletons born 2005–07.
+  - LMS values can be downloaded from [inescharts.com](https://www.inescharts.com/) **[snippet]**.
+  - No licence was found, so (a) ❓ and (b) ❓.
+- **Spada 2024**: birthweight only, not split by birth order. Centiles plus L and S by gestational age are in Table A1 of the supplement.
+  - Licence: CC BY 4.0, plus "The Creative Commons Public Domain Dedication waiver … applies to the data made available in this article" ([article](https://link.springer.com/article/10.1186/s13052-024-01660-7) **[snippet]**).
 
-**Verdict:** (a) ✅ and (b) ✅ with attribution, once the supplement is verified directly.
+**Verdict:** Spada 2024 is (a) ✅ and (b) ✅ with attribution, once the supplement and its licence line are verified on the live page.
 
 **Fit:** this classifies a baby at birth (SGA/AGA/LGA). It is not a growth curve, and it needs a gestational-age field. Low priority.
 
@@ -162,6 +196,57 @@ Licence verdicts use: ✅ allowed · ❓ unclear or permission needed · ⛔ not
 
 **Verdict:** (a) ⛔ and (b) ⛔ without a licence.
 
+### 4.8 Other Italian references (brief)
+
+- **Down syndrome:** Cattoni et al., *J Endocrinol Invest* 2025, doi:10.1007/s40618-025-02777-0. Italian syndrome-specific height, weight and BMI from 526 patients **[snippet]**. Method and licence are unverified; assume permission is needed.
+- **CedAP Lombardy birthweight charts:** *Ital J Pediatr* 2025, doi:10.1186/s13052-025-02163-9. Probably CC BY (a BMC journal), unverified. Size at birth only.
+- **Preterm postnatal:** no Italian LMS reference was found. INTERGROWTH-21st (§4.6) is the usual choice.
+
+### 4.9 European national references
+
+- **France:** the 2018 curves (Heude et al., *Lancet Digit Health* 2019) are explicitly not free of rights. The AFPA pages say "Courbes AFPA- CRESS/Inserm -CompuGroup Medical 2018 non libres de droit" **[snippet]**, and CGM licenses them to software vendors. They also use BCPE, not LMS, so an LMS engine could not reproduce them. **Excluded.**
+- **Germany:**
+  - KiGGS: LMS values are in `childsds::kiggs.ref` (opened directly, GPL-3 package), sourced from the RKI report. The report is "© Robert Koch-Institut", with no CC licence found **[snippet]**. Ask RKI (Department of Epidemiology and Health Monitoring).
+  - Kromeyer-Hauschild 2001 BMI: in `childsds::kro.ref`; Springer article.
+- **Norway, Bergen:** LMS method, but no published table and a paywalled article. Ask P. B. Júlíusson (University of Bergen).
+- **Sweden:** clinical charts are SD-based. The GrowUp 1990 LMS paper (*Acta Paediatr* 2021) has an unverified licence, and the height reference uses QEPS, not LMS.
+- **Netherlands (TNO):** the only European set with plain-text LMS tables:
+  - 1997 and 2009 Dutch references, Turkish- and Moroccan-origin references, Down syndrome and preterm.
+  - Sources: [`AGD`](https://github.com/stefvanbuuren/AGD) (GPL-2 | GPL-3) and [`growthcharts/nlreferences`](https://github.com/growthcharts/nlreferences) (AGPL-3), both opened directly.
+  - The code licences don't settle the rights to TNO's data: the charts say "Voor persoonlijk gebruik" **[snippet]**. Ask TNO Child Health (Stef van Buuren).
+
+### 4.10 Asian national references
+
+- **China, Zong & Li 2013** (*PLOS ONE* 8:e59569):
+  - 0–18 y weight, length/height, BMI and HC (0–7 y), plus weight-for-length and weight-for-height, all LMS.
+  - PLOS ONE publishes under CC BY **[snippet]**.
+  - **Candidate with a permissive licence.** Transcribe from the article tables, not from `childsds::zong13.ref` (GPL-3).
+- **South Korea, KNGC 2017:**
+  - Uses WHO for 0–35 months and Korean data for 3–18 years.
+  - The NHIS publishes an LMS CSV on [data.go.kr](https://www.data.go.kr/data/15133061/fileData.do) marked "이용허락범위: 제한 없음" (no restriction on use) **[snippet]**.
+  - **Candidate with a permissive licence,** once that page and the CSV's age span are verified. The article itself is CC BY-NC, so don't take the numbers from it.
+- **Japan:**
+  - Kato 2014 (*Acta Paediatr*, LMS in the tables) may be CC BY-NC (unverified).
+  - The JSPE 2000 charts are JSPE copyright, with reproduction prohibited **[snippet]**. Ask JSPE.
+- **India, IAP 2015:** LMS values "can be obtained from the author" for research **[snippet]**. Ask Dr V. Khadilkar and the IAP Growth Chart Committee.
+
+### 4.11 Condition-specific references (summary)
+
+None of these has machine-readable LMS under a clearly permissive licence.
+
+| Condition | Main reference | Machine-readable LMS? | Licence |
+|---|---|---|---|
+| Down syndrome | Zemel 2015 (US, §4.2); Styles 2002 (UK); TNO 2009 (NL); Cattoni 2025 (IT) | UK/US in `rcpchgrowth` JSON (AGPL-3); NL in `nlreferences` (AGPL-3) | ❓ |
+| Turner | Lyon 1985 (UK); Rongen-Westerlaken 1997; Isojima 2009 (JP) | `rcpchgrowth` `turner.json` (height only, AGPL-3) | ❓ |
+| Prader-Willi | Butler 2011/2015/2016 | No, PDF charts only | ❓ |
+| Achondroplasia | Neumeyer 2021 (European LMS); CLARITY (Hoover-Fong 2021, mean/SD) | tables unclear | Neumeyer CC BY 4.0 **[snippet]** |
+| Williams | Martin 2007 (UK, LMS) | No | ❓ (BMJ) |
+| Noonan / RASopathies | Ranke 1988; Malaquias 2012; Isojima 2016 | No. A 2025 preprint reports errors in published LMS | ❓ |
+| 22q11.2 deletion | Tarquinio 2012; Habel 2012 | No | ❓ (Wiley) |
+| Beckwith-Wiedemann | Maas 2025 (GAMLSS) | Unclear; not pure LMS | ❓ |
+| Cerebral palsy | Brooks 2011 (by GMFCS level) | No, percentile charts only | ❓ |
+| Fragile X, Cri-du-chat | no established LMS reference found | No | n/a |
+
 ## 5. Architecture implications
 
 The issue asks for an extensible reference registry and no silent switches. From this research and from `rcpchgrowth`'s design (a dispatch on a reference string, with per-reference loaders and explicit age thresholds), the registry entry needs at least:
@@ -180,6 +265,8 @@ Rules to keep:
 - **BMI** needs weight and length/height on the same date. The app records them separately, so a pairing rule is needed (for example, the same day, or within N days).
 - The **two LMS implementations** (`GrowthChart.tsx` and `monthly-report-card.helpers.ts`) should be merged into one tested function before adding references, so that every reference rounds and clamps the same way.
 - `app/api/utils/db-backup.ts` currently omits the WHO tables. Every registry table must also be added there.
+- **Never copy data out of GPL/AGPL packages** (`childsds`, `AGD`, `nlreferences`, `rcpchgrowth`, `gigs`). Copyleft obligations would conflict with the Sprout Track licence, and the packages don't grant rights to the underlying data anyway. Transcribe from the primary publication under its own licence, and use the packages only to cross-check values.
+- **Not every reference is LMS.** France uses BCPE, INTERGROWTH-21st uses skew-t, Sweden uses QEPS. The registry should declare each entry's method, so that a non-LMS engine can be added later without pretending these are LMS.
 
 ## 6. Recommendation
 
@@ -188,8 +275,15 @@ Rules to keep:
 3. Once (2) is resolved, or if the maintainers accept the current WHO usage:
    - **WHO 0–5 (24→60 months)** is the cheapest data addition, using the same source and format.
    - **WHO 5–19** follows when BMI is supported.
-4. **SIEDP:** ask SIEDP for permission and for the LMS tables. This is the most valuable national reference for Italian families.
-5. **Deferred:** CDC Down syndrome (no LMS), UK-WHO (MRC licence), INTERGROWTH-21st and Fenton (licence plus preterm age model), and INeS (needs a GA field).
+4. **SIEDP:** ask SIEDP for permission and for the LMS tables. This is the most valuable national reference for Italian families, and it matches the national consensus (WHO under 2 years, SIEDP from 2 years).
+5. **References with a permissive licence on paper:**
+   - China, Zong 2013 (CC BY).
+   - South Korea, NHIS LMS CSV ("no restriction").
+   - INeS / Spada 2024 birthweight (CC BY + CC0, needs a GA field).
+
+   Each needs its licence line verified on the live page first. They are the only national references that could be added without asking anyone.
+6. **Excluded or needs permission:** France (proprietary), Germany, Norway, Sweden, the Netherlands, Japan and India; every condition-specific reference.
+7. **Deferred:** CDC Down syndrome (no LMS), UK-WHO (MRC licence), INTERGROWTH-21st and Fenton (licence plus preterm age model), and INeS (needs a GA field).
 
 ## 7. Open questions for maintainers
 
@@ -199,6 +293,8 @@ Rules to keep:
 - When the selected reference ends (for example, WHO at 60 months): fall back to CDC with a label, or stop plotting percentiles?
 - Is adding a gestational-age / corrected-age field to `Baby` in scope? It is a prerequisite for any preterm reference.
 - Should SIEDP be pursued as the first national reference (Italian contributors available to contact SIEDP)?
+- Are national references whose licence is permissive but which serve smaller user groups (China, South Korea) worth adding before the WHO and SIEDP questions are settled?
+- Is it acceptable to ship a reference transcribed from a CC BY article, with attribution in the UI and PDF?
 
 ## Sources opened directly
 
@@ -210,5 +306,8 @@ Rules to keep:
 - https://github.com/eatyourpeas/Kings-College-Hospital-eGrowth-Charts
 - https://github.com/statist7/sitar (`DESCRIPTION`, `man/uk90.Rd`)
 - https://github.com/lshtm-gigs/gigs (README, `DESCRIPTION`, `R/data.R`, `R/ig_png.R`, `R/ig_nbs.R`)
+- https://github.com/cran/childsds (`DESCRIPTION`: GPL-3; `data/italian.ref.rda`, `kiggs.ref.rda`, `kro.ref.rda`, `zong13.ref.rda`, `man/*.Rd`)
+- https://github.com/stefvanbuuren/AGD (`DESCRIPTION`: GPL-2 | GPL-3; `nl4.*` data)
+- https://github.com/growthcharts/nlreferences (`DESCRIPTION`: AGPL-3; LMS tables)
 
 All other URLs above are **[snippet]**: seen through search results only, to be re-read before any licensing decision.
