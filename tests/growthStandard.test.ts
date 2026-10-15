@@ -4,6 +4,8 @@ import {
   calculateGrowthAgeMonths,
   isValidGrowthStandard,
   effectiveGrowthStandard,
+  resolveSelectedGrowthStandard,
+  resolveGrowthStandard,
 } from '@/src/utils/growthStandard';
 
 describe('WHO_MAX_AGE_MONTHS', () => {
@@ -93,5 +95,59 @@ describe('effectiveGrowthStandard', () => {
     expect(effectiveGrowthStandard(undefined, 10)).toBe('CDC');
     expect(effectiveGrowthStandard('', 10)).toBe('CDC');
     expect(effectiveGrowthStandard('STONE', 10)).toBe('CDC');
+  });
+});
+
+describe('resolveSelectedGrowthStandard', () => {
+  it('inherits the family default when the baby has no override', () => {
+    expect(resolveSelectedGrowthStandard(null, 'WHO')).toEqual({ selected: 'WHO', source: 'family' });
+    expect(resolveSelectedGrowthStandard(undefined, 'CDC')).toEqual({ selected: 'CDC', source: 'family' });
+  });
+
+  it('prefers the baby override over the family default', () => {
+    expect(resolveSelectedGrowthStandard('CDC', 'WHO')).toEqual({ selected: 'CDC', source: 'baby' });
+    expect(resolveSelectedGrowthStandard('WHO', 'CDC')).toEqual({ selected: 'WHO', source: 'baby' });
+  });
+
+  it('falls back to CDC when neither the baby nor the family has a usable value', () => {
+    expect(resolveSelectedGrowthStandard(null, null)).toEqual({ selected: 'CDC', source: 'default' });
+    expect(resolveSelectedGrowthStandard('', '  ')).toEqual({ selected: 'CDC', source: 'default' });
+  });
+
+  it('treats an unknown baby value as inherit rather than an error', () => {
+    expect(resolveSelectedGrowthStandard('FENTON', 'WHO')).toEqual({ selected: 'WHO', source: 'family' });
+    expect(resolveSelectedGrowthStandard('FENTON', 'UNKNOWN')).toEqual({ selected: 'CDC', source: 'default' });
+  });
+
+  it('normalizes case and whitespace like effectiveGrowthStandard', () => {
+    expect(resolveSelectedGrowthStandard(' who ', 'CDC')).toEqual({ selected: 'WHO', source: 'baby' });
+    expect(resolveSelectedGrowthStandard(null, 'who')).toEqual({ selected: 'WHO', source: 'family' });
+  });
+
+  it('resolves siblings independently against the same family default', () => {
+    const family = 'CDC';
+    expect(resolveSelectedGrowthStandard('WHO', family).selected).toBe('WHO');
+    expect(resolveSelectedGrowthStandard(null, family).selected).toBe('CDC');
+  });
+});
+
+describe('resolveGrowthStandard', () => {
+  it('reports both the selected and the effective standard', () => {
+    expect(resolveGrowthStandard('WHO', 'CDC', 12)).toEqual({ selected: 'WHO', source: 'baby', effective: 'WHO' });
+  });
+
+  it('keeps the selection but uses CDC once a WHO baby is past 24 months', () => {
+    expect(resolveGrowthStandard('WHO', 'CDC', 24.01)).toEqual({ selected: 'WHO', source: 'baby', effective: 'CDC' });
+    expect(resolveGrowthStandard(null, 'WHO', 30)).toEqual({ selected: 'WHO', source: 'family', effective: 'CDC' });
+  });
+
+  it('is backward compatible: no override behaves exactly like the family-only policy', () => {
+    for (const family of ['CDC', 'WHO', 'who', null, undefined, 'BOGUS']) {
+      for (const age of [0, 12, 24, 24.01, 36, 240]) {
+        expect(resolveGrowthStandard(null, family, age).effective).toBe(
+          effectiveGrowthStandard(family, age),
+        );
+      }
+    }
   });
 });

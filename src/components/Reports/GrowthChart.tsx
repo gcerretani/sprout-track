@@ -19,7 +19,7 @@ import { useLocalization } from '@/src/context/localization';
 import { useTimezone } from '@/app/context/timezone';
 import { formatDateLong } from '@/src/utils/dateFormat';
 import { toCdcWeightKg, fromCdcWeightKg, weightUnitLabel, formatChartValue } from '@/src/utils/weightUnits';
-import { calculateGrowthAgeMonths, effectiveGrowthStandard } from '@/src/utils/growthStandard';
+import { calculateGrowthAgeMonths, resolveGrowthStandard } from '@/src/utils/growthStandard';
 import {
   buildGrowthReferenceChartPoints,
   resolveGrowthReference,
@@ -27,6 +27,7 @@ import {
   type GrowthReferenceSegment,
 } from '@/src/utils/growthReferences';
 import {
+  buildGrowthChartXAxis,
   buildGrowthChartYAxis,
   formatGrowthChartAxisTick,
 } from '@/src/utils/growthChartAxis';
@@ -322,7 +323,9 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
     return calculateGrowthAgeMonths(selectedBaby.birthDate.toString(), new Date());
   }, [selectedBaby]);
 
-  const effectiveStandard = effectiveGrowthStandard(
+  // The baby's own override wins over the family default; WHO still falls back to CDC past 24 months.
+  const { selected: selectedStandard, effective: effectiveStandard } = resolveGrowthStandard(
+    selectedBaby?.growthReference,
     settings?.growthChartStandard,
     babyAgeMonthsForStandard,
   );
@@ -561,6 +564,11 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
 
   const unitLabel = getUnitLabel(measurementType, settings);
 
+  const xAxis = useMemo(
+    () => buildGrowthChartXAxis(chartData.map(point => point.ageMonths)),
+    [chartData],
+  );
+
   const yAxis = useMemo(
     () => buildGrowthChartYAxis(
       chartData.flatMap(point => [
@@ -581,6 +589,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
   );
 
   const latestMeasurement = measurementsWithPercentiles.at(-1);
+  const referenceTransitions = chartData.filter(point => point.referenceTransition);
 
   // Zoom handlers
   const handleZoomIn = useCallback(() => {
@@ -792,9 +801,10 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
               <XAxis
                 dataKey="ageMonths"
                 type="number"
-                domain={[0, 'dataMax']}
+                domain={xAxis.domain}
+                ticks={xAxis.ticks}
                 label={{ value: 'Age (months)', position: 'insideBottom', offset: -10 }}
-                tickFormatter={(value) => value.toString()}
+                tickFormatter={(value) => Number(value).toFixed(0)}
                 className="growth-chart-axis"
               />
               <YAxis
@@ -806,6 +816,22 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
                 className="growth-chart-axis"
               />
               <Tooltip content={<CustomTooltip settings={settings} measurementType={measurementType} t={t} />} />
+
+              {referenceTransitions.map(point => (
+                <ReferenceLine
+                  key={`reference-transition-${point.ageMonths}`}
+                  x={point.ageMonths}
+                  stroke="#94a3b8"
+                  strokeWidth={1}
+                  strokeDasharray="4 4"
+                  label={{
+                    value: `24 ${t('months')}`,
+                    position: 'insideTop',
+                    fill: '#94a3b8',
+                    fontSize: 10,
+                  }}
+                />
+              ))}
 
               {latestMeasurement && (
                 <ReferenceLine
@@ -900,6 +926,13 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
         </div>
       </div>
 
+      {referenceTransitions.map(point => (
+        <div key={`reference-transition-note-${point.ageMonths}`} className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          <span className="font-medium">{t(point.referenceTransition!.labelKey)}:</span>{' '}
+          {t(point.referenceTransition!.descriptionKey)}
+        </div>
+      ))}
+
       {/* Measurements list with percentiles */}
       {measurementsWithPercentiles.length > 0 && (
         <div className={cn(growthChartStyles.measurementsList, "growth-chart-measurements-list")}>
@@ -937,6 +970,11 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
         <p className={cn(growthChartStyles.legendSubtext, "growth-chart-legend-subtext")}>
           {t('Percentile lines show how your baby compares to other children of the same age and sex. The 50th percentile represents the median.')}
         </p>
+        {selectedStandard !== effectiveStandard && (
+          <p className={cn(growthChartStyles.legendSubtext, "growth-chart-legend-subtext")}>
+            {t('WHO is selected, but CDC is used after 24 months.')}
+          </p>
+        )}
       </div>
 
       {/* No measurements message */}

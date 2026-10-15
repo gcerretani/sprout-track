@@ -59,6 +59,7 @@ const handleEditBaby = (baby: Baby) => {
 - Create new baby profiles
 - Edit existing baby profiles
 - Set warning times for feeding and diaper changes
+- Choose a per-baby growth chart standard (CDC / WHO) or inherit the family default; sent as `growthReference` (`null` = inherit)
 - Mark babies as inactive (when editing)
 - Form validation for required fields
 - Responsive layout for mobile and desktop

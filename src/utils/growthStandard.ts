@@ -1,6 +1,9 @@
 /**
  * Pure policy for choosing a growth-chart reference standard.
  *
+ * Each baby may override the family default (`Baby.growthReference`); null or
+ * an unknown value inherits `Settings.growthChartStandard`, then CDC.
+ *
  * WHO reference data covers 0–24 months. When a family selects WHO but the
  * relevant baby age exceeds 24 months, the whole chart/report falls back to CDC
  * (matching CDC clinical guidance: WHO for 0–24mo, CDC for 2+ years). The chart
@@ -11,6 +14,11 @@
 export const WHO_MAX_AGE_MONTHS = 24;
 
 export type GrowthStandard = 'CDC' | 'WHO';
+
+export const DEFAULT_GROWTH_STANDARD: GrowthStandard = 'CDC';
+
+// Where the selected standard came from: the baby override, the family default, or the app default.
+export type GrowthStandardSource = 'baby' | 'family' | 'default';
 
 export function calculateGrowthAgeMonths(
   birthDateInput: Date | string,
@@ -45,6 +53,11 @@ export function isValidGrowthStandard(value: unknown): value is GrowthStandard {
   return value === 'CDC' || value === 'WHO';
 }
 
+// API validation for Baby.growthReference: null/undefined clears the override (inherit).
+export function isValidGrowthReference(value: unknown): boolean {
+  return value === null || value === undefined || isValidGrowthStandard(value);
+}
+
 // Resolve the standard actually used, given the family's selection and a baby age.
 export function effectiveGrowthStandard(
   selected: string | null | undefined,
@@ -53,4 +66,31 @@ export function effectiveGrowthStandard(
   const normalized = (selected || '').toUpperCase().trim();
   if (normalized === 'WHO' && babyAgeMonths <= WHO_MAX_AGE_MONTHS) return 'WHO';
   return 'CDC';
+}
+
+function normalizeGrowthStandard(value: string | null | undefined): GrowthStandard | null {
+  const normalized = (value || '').toUpperCase().trim();
+  return isValidGrowthStandard(normalized) ? normalized : null;
+}
+
+// The standard the user chose for this baby, before any age-based fallback.
+export function resolveSelectedGrowthStandard(
+  babyReference: string | null | undefined,
+  familyDefault: string | null | undefined,
+): { selected: GrowthStandard; source: GrowthStandardSource } {
+  const baby = normalizeGrowthStandard(babyReference);
+  if (baby) return { selected: baby, source: 'baby' };
+  const family = normalizeGrowthStandard(familyDefault);
+  if (family) return { selected: family, source: 'family' };
+  return { selected: DEFAULT_GROWTH_STANDARD, source: 'default' };
+}
+
+// Selected standard plus the one actually used at the given age (they differ when WHO falls back to CDC).
+export function resolveGrowthStandard(
+  babyReference: string | null | undefined,
+  familyDefault: string | null | undefined,
+  babyAgeMonths: number,
+): { selected: GrowthStandard; source: GrowthStandardSource; effective: GrowthStandard } {
+  const resolved = resolveSelectedGrowthStandard(babyReference, familyDefault);
+  return { ...resolved, effective: effectiveGrowthStandard(resolved.selected, babyAgeMonths) };
 }

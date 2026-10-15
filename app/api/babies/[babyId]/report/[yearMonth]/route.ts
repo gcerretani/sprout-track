@@ -5,7 +5,7 @@ import { withAuthContext, AuthResult } from '../../../../utils/auth';
 import { formatForResponse } from '../../../../utils/timezone';
 import { toCdcWeightKg, fromCdcWeightKg } from '@/src/utils/weightUnits';
 import { isDirtyDiaper } from '@/src/utils/diaperStats';
-import { calculateGrowthAgeMonths, effectiveGrowthStandard } from '@/src/utils/growthStandard';
+import { calculateGrowthAgeMonths, resolveGrowthStandard } from '@/src/utils/growthStandard';
 import {
   buildGrowthReferenceChartPoints,
   createGrowthReferenceSegments,
@@ -236,13 +236,15 @@ async function handleGet(req: NextRequest, authContext: AuthResult): Promise<Nex
   const displayWeightUnit = (familySettings?.defaultWeightUnit || 'LB').toUpperCase();
   const displayHeightUnit = (familySettings?.defaultHeightUnit || 'IN').toUpperCase();
 
-  // Choose the standard for the whole report from the baby's age at the end of the
-  // report month; WHO past 24 months automatically falls back to CDC.
+  // Choose the standard for the whole report: the baby's override, else the family
+  // default, evaluated at the baby's age at the end of the report month; WHO past
+  // 24 months automatically falls back to CDC.
   const reportAgeMonths = calculateGrowthAgeMonths(birthDate, endOfMonth);
-  const growthStandard = effectiveGrowthStandard(
-    familySettings?.growthChartStandard,
-    reportAgeMonths,
-  );
+  const {
+    effective: growthStandard,
+    selected: growthStandardSelected,
+    source: growthStandardSource,
+  } = resolveGrowthStandard(baby.growthReference, familySettings?.growthChartStandard, reportAgeMonths);
 
   // Unit conversion helpers (weight math shared with GrowthChart via weightUnits)
   function toCdcUnit(
@@ -503,6 +505,7 @@ async function handleGet(req: NextRequest, authContext: AuthResult): Promise<Nex
       measurement: point.measurement,
       measurementDate: point.measurementDate,
       percentile: point.percentile,
+      referenceTransition: point.referenceTransition,
     }));
 
     return { points, unit: displayUnit };
@@ -759,6 +762,8 @@ async function handleGet(req: NextRequest, authContext: AuthResult): Promise<Nex
       isCurrentMonth,
     },
     growthStandard,
+    growthStandardSelected,
+    growthStandardSource,
     growth: {
       weight: weightMetric,
       length: lengthMetric,
