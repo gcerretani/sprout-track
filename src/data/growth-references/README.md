@@ -60,7 +60,7 @@ python -m venv /tmp/venv && /tmp/venv/bin/pip install rdata
 
 The LMS formula itself is checked against WHO and CDC published percentiles in `tests/growthReferences.test.ts`.
 
-**Not included** (see `documentation/Implementation/growth-references-research.md`):
+**Not included** (see the dataset research on [issue #292](https://github.com/Oak-and-Sprout/sprout-track/issues/292)):
 - UK90/UK-WHO: MRC licence.
 - Fenton and Olsen preterm charts: licensed, and they need gestational age.
 - France 2018: proprietary.
