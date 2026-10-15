@@ -6,6 +6,7 @@ import { toUTC, formatForResponse } from '../utils/timezone';
 import { withAuthContext, AuthResult } from '../utils/auth';
 import { checkWritePermission } from '../utils/writeProtection';
 import { isValidFeedTimerTypes } from '@/src/utils/feedTimerConfig';
+import { isValidGrowthReference } from '@/src/utils/growthStandard';
 import { resolveFamilyScope } from '../utils/family-scope';
 
 async function handlePost(req: NextRequest, authContext: AuthResult) {
@@ -23,6 +24,13 @@ async function handlePost(req: NextRequest, authContext: AuthResult) {
     if (!isValidFeedTimerTypes(babyData.feedTimerTypes)) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'Invalid feed timer types' },
+        { status: 400 }
+      );
+    }
+
+    if (!isValidGrowthReference(babyData.growthReference)) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Invalid growth reference' },
         { status: 400 }
       );
     }
@@ -93,6 +101,13 @@ async function handlePut(req: NextRequest, authContext: AuthResult) {
     if (!isValidFeedTimerTypes(updateData.feedTimerTypes)) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'Invalid feed timer types' },
+        { status: 400 }
+      );
+    }
+
+    if (!isValidGrowthReference(updateData.growthReference)) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Invalid growth reference' },
         { status: 400 }
       );
     }

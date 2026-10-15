@@ -164,7 +164,7 @@ export default function UserSettingsTab({
       {/* Growth Chart Standard */}
       <div>
         <h3 className="form-label mb-4">{t('Growth Chart Standard')}</h3>
-        <p className="text-sm text-gray-500 mb-4">{t('Choose which growth reference to use for percentile calculations.')}</p>
+        <p className="text-sm text-gray-500 mb-4">{t('Default growth reference for percentile calculations. Each baby can override it in their profile.')}</p>
         <div className="max-w-xs">
           <Label className="form-label" htmlFor={`${idPrefix}-growth-standard`}>{t('Standard')}</Label>
           <Select

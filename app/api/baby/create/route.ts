@@ -5,6 +5,7 @@ import { ApiResponse, getAuthenticatedUser } from '@/app/api/utils/auth';
 import { checkWritePermission } from '@/app/api/utils/writeProtection';
 import { Baby, Gender } from '@prisma/client';
 import { isValidFeedTimerTypes } from '@/src/utils/feedTimerConfig';
+import { isValidGrowthReference } from '@/src/utils/growthStandard';
 
 const CreateBabySchema = z.object({
   familyId: z.string(),
@@ -21,6 +22,11 @@ const CreateBabySchema = z.object({
     .nullable()
     .optional()
     .refine(isValidFeedTimerTypes, 'Invalid feed timer types'),
+  growthReference: z
+    .string()
+    .nullable()
+    .optional()
+    .refine(isValidGrowthReference, 'Invalid growth reference'),
 });
 
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<Baby>>> {

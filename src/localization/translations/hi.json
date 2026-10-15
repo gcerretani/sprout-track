@@ -225,6 +225,7 @@
   "Are you sure you want to revoke this API key? This cannot be undone.": "क्या आप वाकई यह API कुंजी रद्द करना चाहते हैं? इसे पूर्ववत नहीं किया जा सकता।",
   "Arts & Crafts": "कला और शिल्प",
   "Associated Contacts": "संबद्ध संपर्क",
+  "At 24 months, CDC switches from recumbent length to standing height; standing height is typically about 0.8 cm lower.": "24 महीने पर CDC संदर्भ लेटकर मापी गई लंबाई से खड़े होकर मापी गई ऊंचाई पर बदलता है; खड़े होकर मापी गई ऊंचाई आम तौर पर लगभग 0.8 सेमी कम होती है।",
   "At least 8 characters": "कम से कम 8 अक्षर",
   "Attach images": "इमेज अटैच करें",
   "Attach up to 4 photos — they'll show on the timeline and in the gallery.": "4 फ़ोटो तक अटैच करें — वे टाइमलाइन और गैलरी में दिखेंगी।",
@@ -594,6 +595,7 @@
   "Decrease left amount": "बाईं ओर की मात्रा घटाएँ",
   "Decrease right amount": "दाईं ओर की मात्रा घटाएँ",
   "Default": "डिफ़ॉल्ट",
+  "Default growth reference for percentile calculations. Each baby can override it in their profile.": "पर्सेंटाइल गणना के लिए डिफ़ॉल्ट ग्रोथ रेफ़रेंस। हर बच्चे की प्रोफ़ाइल में इसे बदला जा सकता है।",
   "Default locations cannot be deleted": "डिफ़ॉल्ट स्थान हटाए नहीं जा सकते",
   "Default locations cannot be renamed or merged": "डिफ़ॉल्ट स्थानों का नाम बदला या विलय नहीं किया जा सकता",
   "Default Password:": "डिफ़ॉल्ट पासवर्ड:",
@@ -976,6 +978,7 @@
   "Family": "परिवार",
   "Family & people": "परिवार और लोग",
   "Family Caretakers": "परिवार के देखभालकर्ता",
+  "Family default": "परिवार का डिफ़ॉल्ट",
   "Family Information": "परिवार की जानकारी",
   "Family link": "परिवार लिंक",
   "Family Management": "परिवार प्रबंधन",
@@ -1291,6 +1294,7 @@
   "Left:": "बायाँ:",
   "Length": "लंबाई",
   "Length / Height": "लंबाई",
+  "Length → standing height": "लंबाई → खड़े होकर ऊंचाई",
   "Length-for-age (CDC)": "आयु के अनुसार लंबाई (CDC)",
   "Length-for-age (WHO)": "आयु के अनुसार लंबाई (WHO)",
   "Length/Height-for-age (CDC)": "आयु के अनुसार लंबाई (CDC)",
@@ -2698,6 +2702,7 @@
   "What's happening in this photo?": "इस फ़ोटो में क्या हो रहा है?",
   "What's on your mind?": "आपके मन में क्या है?",
   "WHO Growth Chart for": "इनके लिए WHO ग्रोथ चार्ट",
+  "WHO is selected, but CDC is used after 24 months.": "WHO चुना गया है, लेकिन 24 महीने के बाद CDC का उपयोग होता है।",
   "Wipe Down": "पोंछना",
   "with failures": "विफलताओं के साथ",
   "with shampoo": "शैम्पू के साथ",
@@ -2757,7 +2762,5 @@
   "Your payment was processed, but we encountered an issue activating your account. Please contact support or try logging out and back in.": "आपका भुगतान हो गया, लेकिन आपका खाता सक्रिय करने में हमें समस्या आई। कृपया सहायता से संपर्क करें या लॉग आउट करके फिर से लॉग इन करें।",
   "Your Personal PIN (6-10 digits)": "आपका निजी पिन (6-10 अंक)",
   "Your Personal Profile": "आपकी निजी प्रोफ़ाइल",
-  "Zero “did anyone change him?” texts sent today.": "आज “क्या किसी ने उसका डायपर बदला?” वाला एक भी मैसेज नहीं भेजा गया।",
-  "Length → standing height": "लंबाई → खड़े होकर ऊंचाई",
-  "At 24 months, CDC switches from recumbent length to standing height; standing height is typically about 0.8 cm lower.": "24 महीने पर CDC संदर्भ लेटकर मापी गई लंबाई से खड़े होकर मापी गई ऊंचाई पर बदलता है; खड़े होकर मापी गई ऊंचाई आम तौर पर लगभग 0.8 सेमी कम होती है।"
+  "Zero “did anyone change him?” texts sent today.": "आज “क्या किसी ने उसका डायपर बदला?” वाला एक भी मैसेज नहीं भेजा गया।"
 }

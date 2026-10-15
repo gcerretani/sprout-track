@@ -73,6 +73,10 @@ html.dark .report-card-metric-sub-neutral {
   color: #9ca3af !important; /* gray-400 */
 }
 
+html.dark .report-card-chart-transition-note {
+  color: #9ca3af !important; /* gray-400 */
+}
+
 html.dark .report-card-metric-sub-warning {
   color: #fbbf24 !important; /* amber-400 */
 }

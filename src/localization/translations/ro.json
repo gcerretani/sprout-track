@@ -225,6 +225,7 @@
   "Are you sure you want to revoke this API key? This cannot be undone.": "Sigur doriți să revocați această cheie API? Această acțiune nu poate fi anulată.",
   "Arts & Crafts": "Arte și Meserii",
   "Associated Contacts": "Contacte Asociate",
+  "At 24 months, CDC switches from recumbent length to standing height; standing height is typically about 0.8 cm lower.": "La 24 de luni, referința CDC trece de la lungimea măsurată culcat la înălțimea măsurată în picioare; înălțimea în picioare este de obicei cu aproximativ 0,8 cm mai mică.",
   "At least 8 characters": "Cel puțin 8 caractere",
   "Attach images": "Atașează imagini",
   "Attach up to 4 photos — they'll show on the timeline and in the gallery.": "Atașează până la 4 fotografii — acestea vor apărea în cronologie și în galerie.",
@@ -594,6 +595,7 @@
   "Decrease left amount": "Scade cantitatea stânga",
   "Decrease right amount": "Scade cantitatea dreapta",
   "Default": "Implicită",
+  "Default growth reference for percentile calculations. Each baby can override it in their profile.": "Referința de creștere implicită pentru calculele percentilelor. Fiecare copil o poate suprascrie în profilul său.",
   "Default locations cannot be deleted": "Locațiile implicite nu pot fi șterse",
   "Default locations cannot be renamed or merged": "Locațiile implicite nu pot fi redenumite sau combinate",
   "Default Password:": "Parolă Implicită:",
@@ -976,6 +978,7 @@
   "Family": "Familie",
   "Family & people": "Familie și persoane",
   "Family Caretakers": "Îngrijitori Familie",
+  "Family default": "Implicit pentru familie",
   "Family Information": "Informații Familie",
   "Family link": "Link-ul familiei",
   "Family Management": "Gestionare Familie",
@@ -1291,6 +1294,7 @@
   "Left:": "Stânga:",
   "Length": "Lungime",
   "Length / Height": "Lungime / Înălțime",
+  "Length → standing height": "Lungime → înălțime în picioare",
   "Length-for-age (CDC)": "Lungime/vârstă (CDC)",
   "Length-for-age (WHO)": "Lungime/vârstă (WHO)",
   "Length/Height-for-age (CDC)": "Lungime/Înălțime/vârstă (CDC)",
@@ -2698,6 +2702,7 @@
   "What's happening in this photo?": "Ce se întâmplă în această fotografie?",
   "What's on your mind?": "La ce te gândești?",
   "WHO Growth Chart for": "Grafic de Creștere WHO pentru",
+  "WHO is selected, but CDC is used after 24 months.": "Este selectat WHO, dar după 24 de luni se folosește CDC.",
   "Wipe Down": "Ștergere cu Prosop",
   "with failures": "cu eșecuri",
   "with shampoo": "cu șampon",
@@ -2757,7 +2762,5 @@
   "Your payment was processed, but we encountered an issue activating your account. Please contact support or try logging out and back in.": "Plata dvs. a fost procesată, dar am întâmpinat o problemă la activarea contului. Vă rugăm să contactați asistența sau să încercați să vă deconectați și să vă reconectați.",
   "Your Personal PIN (6-10 digits)": "PIN-ul dvs. personal (6-10 cifre)",
   "Your Personal Profile": "Profilul dvs. personal",
-  "Zero “did anyone change him?” texts sent today.": "Zero mesaje de tipul „i-a schimbat cineva scutecul?” trimise azi.",
-  "Length → standing height": "Lungime → înălțime în picioare",
-  "At 24 months, CDC switches from recumbent length to standing height; standing height is typically about 0.8 cm lower.": "La 24 de luni, referința CDC trece de la lungimea măsurată culcat la înălțimea măsurată în picioare; înălțimea în picioare este de obicei cu aproximativ 0,8 cm mai mică."
+  "Zero “did anyone change him?” texts sent today.": "Zero mesaje de tipul „i-a schimbat cineva scutecul?” trimise azi."
 }

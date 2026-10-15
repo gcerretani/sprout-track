@@ -225,6 +225,7 @@
   "Are you sure you want to revoke this API key? This cannot be undone.": "Tem a certeza de que deseja revogar esta chave de API? Esta ação não pode ser desfeita.",
   "Arts & Crafts": "Artes e Trabalhos Manuais",
   "Associated Contacts": "Contactos Associados",
+  "At 24 months, CDC switches from recumbent length to standing height; standing height is typically about 0.8 cm lower.": "Aos 24 meses, a referência do CDC passa do comprimento medido deitado para a altura medida em pé; a altura em pé é normalmente cerca de 0,8 cm inferior.",
   "At least 8 characters": "Pelo menos 8 caracteres",
   "Attach images": "Anexar imagens",
   "Attach up to 4 photos — they'll show on the timeline and in the gallery.": "Anexe até 4 fotografias — estas aparecerão na cronologia e na galeria.",
@@ -594,6 +595,7 @@
   "Decrease left amount": "Diminuir quantidade esquerda",
   "Decrease right amount": "Diminuir quantidade direita",
   "Default": "Predefinido",
+  "Default growth reference for percentile calculations. Each baby can override it in their profile.": "Referência de crescimento predefinida para os cálculos de percentil. Cada bebé pode alterá-la no seu perfil.",
   "Default locations cannot be deleted": "Os locais predefinidos não podem ser eliminados",
   "Default locations cannot be renamed or merged": "Os locais predefinidos não podem ser renomeados nem unidos",
   "Default Password:": "Palavra-passe Padrão:",
@@ -976,6 +978,7 @@
   "Family": "Família",
   "Family & people": "Família e pessoas",
   "Family Caretakers": "Cuidadores da Família",
+  "Family default": "Predefinição da família",
   "Family Information": "Informações da Família",
   "Family link": "Ligação da família",
   "Family Management": "Gestão de Famílias",
@@ -1291,6 +1294,7 @@
   "Left:": "Esquerda:",
   "Length": "Comprimento",
   "Length / Height": "Comprimento / Altura",
+  "Length → standing height": "Comprimento → altura em pé",
   "Length-for-age (CDC)": "Comprimento-para-idade (CDC)",
   "Length-for-age (WHO)": "Comprimento-para-idade (WHO)",
   "Length/Height-for-age (CDC)": "Comprimento/Altura-para-idade (CDC)",
@@ -2698,6 +2702,7 @@
   "What's happening in this photo?": "O que está a acontecer nesta foto?",
   "What's on your mind?": "Em que está a pensar?",
   "WHO Growth Chart for": "Gráfico de Crescimento WHO para",
+  "WHO is selected, but CDC is used after 24 months.": "A WHO está selecionada, mas após os 24 meses é utilizado o CDC.",
   "Wipe Down": "Limpeza com Pano",
   "with failures": "com falhas",
   "with shampoo": "com champô",
@@ -2757,7 +2762,5 @@
   "Your payment was processed, but we encountered an issue activating your account. Please contact support or try logging out and back in.": "O seu pagamento foi processado, mas encontrámos um problema ao ativar a sua conta. Por favor, contacte o suporte ou tente terminar e reiniciar a sessão.",
   "Your Personal PIN (6-10 digits)": "O seu PIN pessoal (6-10 dígitos)",
   "Your Personal Profile": "O seu perfil pessoal",
-  "Zero “did anyone change him?” texts sent today.": "Zero mensagens de “alguém já lhe mudou a fralda?” enviadas hoje.",
-  "Length → standing height": "Comprimento → altura em pé",
-  "At 24 months, CDC switches from recumbent length to standing height; standing height is typically about 0.8 cm lower.": "Aos 24 meses, a referência do CDC passa do comprimento medido deitado para a altura medida em pé; a altura em pé é normalmente cerca de 0,8 cm inferior."
+  "Zero “did anyone change him?” texts sent today.": "Zero mensagens de “alguém já lhe mudou a fralda?” enviadas hoje."
 }

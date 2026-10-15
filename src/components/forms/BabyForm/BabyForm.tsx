@@ -41,6 +41,9 @@ interface BabyFormProps {
   appearance?: 'default' | 'storybook';
 }
 
+// Select value for "no override" (Radix Select items can't use an empty value); sent to the API as null.
+const INHERIT_GROWTH_REFERENCE = 'FAMILY';
+
 const defaultFormData = {
   firstName: '',
   lastName: '',
@@ -52,6 +55,7 @@ const defaultFormData = {
   pumpWarningTime: '03:00',
   feedTimerFrom: 'start',
   feedTimerTypes: [...FEED_TIMER_CATEGORIES] as FeedTimerCategory[],
+  growthReference: INHERIT_GROWTH_REFERENCE,
 };
 
 export default function BabyForm({
@@ -87,6 +91,7 @@ export default function BabyForm({
         pumpWarningTime: baby.pumpWarningTime || '03:00',
         feedTimerFrom: (baby as any).feedTimerFrom || 'start',
         feedTimerTypes: parseFeedTimerTypes((baby as any).feedTimerTypes) ?? [...FEED_TIMER_CATEGORIES],
+        growthReference: baby.growthReference || INHERIT_GROWTH_REFERENCE,
       });
     } else if (!isOpen && !isSubmitting) {
       setFormData(defaultFormData);
@@ -122,6 +127,8 @@ export default function BabyForm({
           feedTimerTypes: formData.feedTimerTypes.length === FEED_TIMER_CATEGORIES.length
             ? null
             : JSON.stringify(formData.feedTimerTypes),
+          // null = inherit the family's growth chart standard
+          growthReference: formData.growthReference === INHERIT_GROWTH_REFERENCE ? null : formData.growthReference,
         }),
       });
 
@@ -260,6 +267,15 @@ export default function BabyForm({
                 <option value="end">{t('End of feeding')}</option>
               </select>
             </div>
+          </div>
+          <div>
+            <label className="sb-fl" htmlFor="sbBabyGrowthReference">{t('Growth Chart Standard')}</label>
+            <select id="sbBabyGrowthReference" className="sb-fi" value={formData.growthReference}
+              onChange={(e) => setFormData({ ...formData, growthReference: e.target.value })}>
+              <option value={INHERIT_GROWTH_REFERENCE}>{t('Family default')}</option>
+              <option value="CDC">CDC</option>
+              <option value="WHO">WHO — {t('0–24 months')}</option>
+            </select>
           </div>
           {isEditing && (
             <label className="sb-fcheck">
@@ -425,6 +441,24 @@ export default function BabyForm({
             value={formData.feedTimerTypes}
             onChange={(feedTimerTypes) => setFormData({ ...formData, feedTimerTypes })}
           />
+          <div>
+            <label htmlFor={`${formId}-growth-reference`} className="form-label">{t('Growth Chart Standard')}</label>
+            <Select
+              value={formData.growthReference}
+              onValueChange={(value) =>
+                setFormData({ ...formData, growthReference: value })
+              }
+            >
+              <SelectTrigger id={`${formId}-growth-reference`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={INHERIT_GROWTH_REFERENCE}>{t('Family default')}</SelectItem>
+                <SelectItem value="CDC">CDC</SelectItem>
+                <SelectItem value="WHO">WHO — {t('0–24 months')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           {isEditing && (
             <div className="flex items-center space-x-2 mt-4">
               <label className="form-label flex items-center cursor-pointer">

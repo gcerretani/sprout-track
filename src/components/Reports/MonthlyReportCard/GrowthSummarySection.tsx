@@ -278,7 +278,7 @@ function GrowthChartCard({
 }
 
 const GrowthSummarySection: React.FC<GrowthSummarySectionProps & { isPdfExport?: boolean }> = ({
-  growth, growthStandard, babyName, isPdfExport,
+  growth, growthStandard, growthStandardSelected = growthStandard, babyName, isPdfExport,
 }) => {
   const { t } = useLocalization();
   const [activeChart, setActiveChart] = useState<ChartType>('weight');
@@ -318,6 +318,12 @@ const GrowthSummarySection: React.FC<GrowthSummarySectionProps & { isPdfExport?:
           <p className={cn(s.metricSub, s.metricSubNeutral, 'report-card-metric-sub-neutral')}>{t('since last month')}</p>
         </div>
       </div>
+
+      {growthStandardSelected !== growthStandard && (
+        <p className="mt-2 text-xs text-gray-500 report-card-chart-transition-note">
+          {t('WHO is selected, but CDC is used after 24 months.')}
+        </p>
+      )}
 
       {/* PDF mode: render all 3 charts separately with animations disabled */}
       {isPdfExport ? (
