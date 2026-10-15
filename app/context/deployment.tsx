@@ -217,3 +217,13 @@ export function useDeployment() {
   }
   return context;
 }
+
+/**
+ * Deployment mode for components that may render outside a DeploymentProvider
+ * (e.g. the account manager on marketing pages). Unknown or still loading →
+ * 'saas', the most restrictive mode, so self-hosted-only options stay hidden.
+ */
+export function useDeploymentModeOrSaas(): 'saas' | 'selfhosted' {
+  const context = useContext(DeploymentContext);
+  return context?.config?.deploymentMode === 'selfhosted' ? 'selfhosted' : 'saas';
+}

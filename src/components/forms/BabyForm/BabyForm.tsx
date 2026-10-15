@@ -30,6 +30,8 @@ import { useTimezone } from '@/app/context/timezone';
 import { formatDateLong } from '@/src/utils/dateFormat';
 import FeedTimerTypesField from '@/src/components/forms/FeedTimerTypesField';
 import { FEED_TIMER_CATEGORIES, FeedTimerCategory, parseFeedTimerTypes } from '@/src/utils/feedTimerConfig';
+import { useDeploymentModeOrSaas } from '@/app/context/deployment';
+import { growthReferenceOptionLabel, listGrowthReferences } from '@/src/utils/growthReferenceRegistry';
 
 interface BabyFormProps {
   isOpen: boolean;
@@ -69,6 +71,7 @@ export default function BabyForm({
   const { t } = useLocalization();
   const { dateFormat } = useTimezone();
   const { showToast } = useToast();
+  const growthReferences = listGrowthReferences(useDeploymentModeOrSaas());
   const [formData, setFormData] = useState(defaultFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const formId = useId();
@@ -273,8 +276,9 @@ export default function BabyForm({
             <select id="sbBabyGrowthReference" className="sb-fi" value={formData.growthReference}
               onChange={(e) => setFormData({ ...formData, growthReference: e.target.value })}>
               <option value={INHERIT_GROWTH_REFERENCE}>{t('Family default')}</option>
-              <option value="CDC">CDC</option>
-              <option value="WHO">WHO — {t('0–24 months')}</option>
+              {growthReferences.map(reference => (
+                <option key={reference.id} value={reference.id}>{growthReferenceOptionLabel(reference, t)}</option>
+              ))}
             </select>
           </div>
           {isEditing && (
@@ -454,8 +458,9 @@ export default function BabyForm({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={INHERIT_GROWTH_REFERENCE}>{t('Family default')}</SelectItem>
-                <SelectItem value="CDC">CDC</SelectItem>
-                <SelectItem value="WHO">WHO — {t('0–24 months')}</SelectItem>
+                {growthReferences.map(reference => (
+                  <SelectItem key={reference.id} value={reference.id}>{growthReferenceOptionLabel(reference, t)}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

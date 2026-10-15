@@ -6,6 +6,7 @@ import { checkWritePermission } from '@/app/api/utils/writeProtection';
 import { Baby, Gender } from '@prisma/client';
 import { isValidFeedTimerTypes } from '@/src/utils/feedTimerConfig';
 import { isValidGrowthReference } from '@/src/utils/growthStandard';
+import { deploymentModeFromEnv } from '@/src/utils/growthReferenceRegistry';
 
 const CreateBabySchema = z.object({
   familyId: z.string(),
@@ -26,7 +27,10 @@ const CreateBabySchema = z.object({
     .string()
     .nullable()
     .optional()
-    .refine(isValidGrowthReference, 'Invalid growth reference'),
+    .refine(
+      value => isValidGrowthReference(value, deploymentModeFromEnv(process.env.DEPLOYMENT_MODE)),
+      'Invalid growth reference',
+    ),
 });
 
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<Baby>>> {

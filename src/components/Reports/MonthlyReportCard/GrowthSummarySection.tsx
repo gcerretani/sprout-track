@@ -11,6 +11,7 @@ import { reportCardStyles as s } from './monthly-report-card.styles';
 import type { GrowthSummarySectionProps } from './monthly-report-card.types';
 import type { GrowthMetric, GrowthChartData } from '@/app/api/types';
 import { formatChartValue } from '@/src/utils/weightUnits';
+import { getGrowthReference } from '@/src/utils/growthReferenceRegistry';
 import {
   buildGrowthChartXAxis,
   buildGrowthChartYAxis,
@@ -283,13 +284,16 @@ const GrowthSummarySection: React.FC<GrowthSummarySectionProps & { isPdfExport?:
   const { t } = useLocalization();
   const [activeChart, setActiveChart] = useState<ChartType>('weight');
 
-  const chartTitle = (type: ChartType, standard: 'CDC' | 'WHO'): string => {
-    const keys: Record<ChartType, { CDC: string; WHO: string }> = {
-      weight: { CDC: 'Weight-for-age (CDC)', WHO: 'Weight-for-age (WHO)' },
-      length: { CDC: 'Length/Height-for-age (CDC)', WHO: 'Length-for-age (WHO)' },
-      headCircumference: { CDC: 'Head circ.-for-age (CDC)', WHO: 'Head circ.-for-age (WHO)' },
+  const reference = getGrowthReference(growthStandard);
+
+  const chartTitle = (type: ChartType, standard: string): string => {
+    const keys: Record<ChartType, { CDC: string; WHO: string; other: string }> = {
+      weight: { CDC: 'Weight-for-age (CDC)', WHO: 'Weight-for-age (WHO)', other: 'Weight-for-age' },
+      length: { CDC: 'Length/Height-for-age (CDC)', WHO: 'Length-for-age (WHO)', other: 'Length/Height-for-age' },
+      headCircumference: { CDC: 'Head circ.-for-age (CDC)', WHO: 'Head circ.-for-age (WHO)', other: 'Head circ.-for-age' },
     };
-    return keys[type][standard];
+    if (standard === 'CDC' || standard === 'WHO') return keys[type][standard];
+    return `${t(keys[type].other)} (${reference?.shortLabel ?? standard})`;
   };
 
   const hasAnyMeasurement = growth.weight || growth.length || growth.headCircumference;
@@ -308,7 +312,7 @@ const GrowthSummarySection: React.FC<GrowthSummarySectionProps & { isPdfExport?:
       {/* Metric grid */}
       <div className={cn(s.metricGrid4)}>
         <MetricCard label={t('Weight')} metric={growth.weight} />
-        <MetricCard label={t(growthStandard === 'CDC' ? 'Length / Height' : 'Length')} metric={growth.length} />
+        <MetricCard label={t(growthStandard === 'WHO' ? 'Length' : 'Length / Height')} metric={growth.length} />
         <MetricCard label={t('Head circ.')} metric={growth.headCircumference} />
         <div className={cn(s.metricCard, 'report-card-metric')}>
           <p className={cn(s.metricLabel, 'report-card-metric-label')}>{t('Growth velocity')}</p>
@@ -368,6 +372,12 @@ const GrowthSummarySection: React.FC<GrowthSummarySectionProps & { isPdfExport?:
             <GrowthChartCard chartData={activeChartData} title={chartTitle(activeChart, growthStandard)} babyName={babyName} />
           )}
         </>
+      )}
+
+      {reference && hasAnyChartData && (
+        <p className="mt-2 text-xs text-gray-500 report-card-chart-transition-note">
+          {t('Source:')} {reference.citation}
+        </p>
       )}
     </>
   );

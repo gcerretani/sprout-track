@@ -687,8 +687,8 @@ export interface MonthlyReport {
     daysTracked: number;
     isCurrentMonth: boolean;
   };
-  growthStandard: 'CDC' | 'WHO'; // standard actually used
-  growthStandardSelected: 'CDC' | 'WHO'; // baby override or family default, before the 24-month WHO→CDC fallback
+  growthStandard: string; // growth reference id actually used (see src/utils/growthReferenceRegistry.ts)
+  growthStandardSelected: string; // baby override or family default, before the 24-month WHO→CDC fallback
   growthStandardSource: 'baby' | 'family' | 'default';
   growth: {
     weight: GrowthMetric | null;

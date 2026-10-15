@@ -7,6 +7,7 @@ import { withAuthContext, AuthResult } from '../utils/auth';
 import { checkWritePermission } from '../utils/writeProtection';
 import { isValidFeedTimerTypes } from '@/src/utils/feedTimerConfig';
 import { isValidGrowthReference } from '@/src/utils/growthStandard';
+import { deploymentModeFromEnv } from '@/src/utils/growthReferenceRegistry';
 import { resolveFamilyScope } from '../utils/family-scope';
 
 async function handlePost(req: NextRequest, authContext: AuthResult) {
@@ -28,7 +29,7 @@ async function handlePost(req: NextRequest, authContext: AuthResult) {
       );
     }
 
-    if (!isValidGrowthReference(babyData.growthReference)) {
+    if (!isValidGrowthReference(babyData.growthReference, deploymentModeFromEnv(process.env.DEPLOYMENT_MODE))) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'Invalid growth reference' },
         { status: 400 }
@@ -105,7 +106,7 @@ async function handlePut(req: NextRequest, authContext: AuthResult) {
       );
     }
 
-    if (!isValidGrowthReference(updateData.growthReference)) {
+    if (!isValidGrowthReference(updateData.growthReference, deploymentModeFromEnv(process.env.DEPLOYMENT_MODE))) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'Invalid growth reference' },
         { status: 400 }

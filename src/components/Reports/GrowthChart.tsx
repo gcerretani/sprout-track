@@ -20,6 +20,8 @@ import { useTimezone } from '@/app/context/timezone';
 import { formatDateLong } from '@/src/utils/dateFormat';
 import { toCdcWeightKg, fromCdcWeightKg, weightUnitLabel, formatChartValue } from '@/src/utils/weightUnits';
 import { calculateGrowthAgeMonths, resolveGrowthStandard } from '@/src/utils/growthStandard';
+import { getGrowthReference } from '@/src/utils/growthReferenceRegistry';
+import { useDeploymentModeOrSaas } from '@/app/context/deployment';
 import {
   buildGrowthReferenceChartPoints,
   resolveGrowthReference,
@@ -48,7 +50,7 @@ interface MeasurementData {
 interface Settings {
   defaultWeightUnit: string;
   defaultHeightUnit: string;
-  growthChartStandard: 'CDC' | 'WHO';
+  growthChartStandard: string;
 }
 
 type ChartDataPoint = GrowthReferenceChartPoint;
@@ -307,6 +309,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
   const { t } = useLocalization();
   const { dateFormat } = useTimezone();
   const { selectedBaby } = useBaby();
+  const deploymentMode = useDeploymentModeOrSaas();
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
   // State
@@ -328,7 +331,9 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
     selectedBaby?.growthReference,
     settings?.growthChartStandard,
     babyAgeMonthsForStandard,
+    deploymentMode,
   );
+  const effectiveReference = getGrowthReference(effectiveStandard);
 
   // Zoom state
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -965,7 +970,11 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
       {/* Legend info */}
       <div className={cn(growthChartStyles.legendInfo, "growth-chart-legend-info")}>
         <p className={cn(growthChartStyles.legendText, "growth-chart-legend-text")}>
-          {effectiveStandard === 'WHO' ? t('WHO Growth Chart for') : t('CDC Growth Chart for')} {t(selectedBaby.gender === 'MALE' ? 'Boys' : 'Girls')} {t('(Birth to')} {babyCurrentAgeMonths} {t('months)')}
+          {effectiveStandard === 'WHO'
+            ? t('WHO Growth Chart for')
+            : effectiveStandard === 'CDC'
+              ? t('CDC Growth Chart for')
+              : `${t(effectiveReference?.label ?? effectiveStandard)}: ${t('Growth chart for')}`} {t(selectedBaby.gender === 'MALE' ? 'Boys' : 'Girls')} {t('(Birth to')} {babyCurrentAgeMonths} {t('months)')}
         </p>
         <p className={cn(growthChartStyles.legendSubtext, "growth-chart-legend-subtext")}>
           {t('Percentile lines show how your baby compares to other children of the same age and sex. The 50th percentile represents the median.')}
@@ -973,6 +982,11 @@ const GrowthChart: React.FC<GrowthChartProps> = ({ className }) => {
         {selectedStandard !== effectiveStandard && (
           <p className={cn(growthChartStyles.legendSubtext, "growth-chart-legend-subtext")}>
             {t('WHO is selected, but CDC is used after 24 months.')}
+          </p>
+        )}
+        {effectiveReference && (
+          <p className={cn(growthChartStyles.legendSubtext, "growth-chart-legend-subtext")}>
+            {t('Source:')} {effectiveReference.citation}
           </p>
         )}
       </div>

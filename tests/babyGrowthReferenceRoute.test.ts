@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const dbMocks = vi.hoisted(() => ({
@@ -120,6 +120,24 @@ describe('POST /api/baby/create growthReference', () => {
   it('rejects an unknown reference', async () => {
     const res = await create({ ...body, growthReference: 'INTERGROWTH' });
     expect(res.status).toBe(400);
+    expect(dbMocks.babyCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe('growthReference and deployment mode', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('accepts registry references on self-hosted installs', async () => {
+    expect((await post({ ...baseBaby, growthReference: 'IT-SIEDP' })).status).toBe(200);
+    expect((await put({ id: 'baby-1', growthReference: 'NL-1997-TR' })).status).toBe(200);
+  });
+
+  it('rejects self-hosted-only references in SaaS mode on every write path', async () => {
+    vi.stubEnv('DEPLOYMENT_MODE', 'saas');
+    expect((await post({ ...baseBaby, growthReference: 'IT-SIEDP' })).status).toBe(400);
+    expect((await put({ id: 'baby-1', growthReference: 'DE-KIGGS' })).status).toBe(400);
+    expect((await create({ ...baseBaby, familyId: 'family-1', growthReference: 'BE-FLANDERS' })).status).toBe(400);
+    expect((await put({ id: 'baby-1', growthReference: 'CN-2005' })).status).toBe(200);
     expect(dbMocks.babyCreate).not.toHaveBeenCalled();
   });
 });

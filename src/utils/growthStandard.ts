@@ -1,8 +1,10 @@
 /**
  * Pure policy for choosing a growth-chart reference standard.
  *
- * Each baby may override the family default (`Baby.growthReference`); null or
- * an unknown value inherits `Settings.growthChartStandard`, then CDC.
+ * Each baby may override the family default (`Baby.growthReference`); null, an
+ * unknown value, or a reference unavailable in this deployment mode inherits
+ * `Settings.growthChartStandard`, then CDC. Valid ids come from the registry
+ * (src/utils/growthReferenceRegistry.ts).
  *
  * WHO reference data covers 0–24 months. When a family selects WHO but the
  * relevant baby age exceeds 24 months, the whole chart/report falls back to CDC
@@ -11,9 +13,16 @@
  * infant or 2–20 year reference segments without mixing standards.
  */
 
+import {
+  getGrowthReference,
+  isGrowthReferenceAvailable,
+  type DeploymentMode,
+} from './growthReferenceRegistry';
+
 export const WHO_MAX_AGE_MONTHS = 24;
 
-export type GrowthStandard = 'CDC' | 'WHO';
+// A growth reference id from src/utils/growthReferenceRegistry.ts (e.g. 'CDC', 'WHO', 'IT-SIEDP').
+export type GrowthStandard = string;
 
 export const DEFAULT_GROWTH_STANDARD: GrowthStandard = 'CDC';
 
@@ -48,39 +57,54 @@ export function calculateGrowthAgeMonths(
   return Math.max(0, totalMonths + dayFraction);
 }
 
-// Strict membership check for API validation. Storage/query values are uppercase.
-export function isValidGrowthStandard(value: unknown): value is GrowthStandard {
-  return value === 'CDC' || value === 'WHO';
+// Registry membership (and availability in this deployment mode) for API validation. Ids are uppercase.
+export function isValidGrowthStandard(
+  value: unknown,
+  mode: DeploymentMode = 'selfhosted',
+): value is GrowthStandard {
+  if (typeof value !== 'string') return false;
+  const reference = getGrowthReference(value);
+  return reference !== undefined && isGrowthReferenceAvailable(reference, mode);
 }
 
 // API validation for Baby.growthReference: null/undefined clears the override (inherit).
-export function isValidGrowthReference(value: unknown): boolean {
-  return value === null || value === undefined || isValidGrowthStandard(value);
+export function isValidGrowthReference(value: unknown, mode: DeploymentMode = 'selfhosted'): boolean {
+  return value === null || value === undefined || isValidGrowthStandard(value, mode);
 }
 
-// Resolve the standard actually used, given the family's selection and a baby age.
+function normalizeGrowthStandard(
+  value: string | null | undefined,
+  mode: DeploymentMode,
+): GrowthStandard | null {
+  const normalized = (value || '').toUpperCase().trim();
+  return isValidGrowthStandard(normalized, mode) ? normalized : null;
+}
+
+// Resolve the standard actually used for a selection at a baby age: a reference
+// with an age limit (WHO, 24 months) hands over to its declared fallback (CDC).
 export function effectiveGrowthStandard(
   selected: string | null | undefined,
   babyAgeMonths: number,
+  mode: DeploymentMode = 'selfhosted',
 ): GrowthStandard {
-  const normalized = (selected || '').toUpperCase().trim();
-  if (normalized === 'WHO' && babyAgeMonths <= WHO_MAX_AGE_MONTHS) return 'WHO';
-  return 'CDC';
-}
-
-function normalizeGrowthStandard(value: string | null | undefined): GrowthStandard | null {
-  const normalized = (value || '').toUpperCase().trim();
-  return isValidGrowthStandard(normalized) ? normalized : null;
+  const reference = getGrowthReference(normalizeGrowthStandard(selected, mode));
+  if (!reference) return DEFAULT_GROWTH_STANDARD;
+  if (reference.maxAgeMonths !== undefined && babyAgeMonths > reference.maxAgeMonths) {
+    return reference.fallbackId ?? DEFAULT_GROWTH_STANDARD;
+  }
+  return reference.id;
 }
 
 // The standard the user chose for this baby, before any age-based fallback.
+// A reference unavailable in this deployment mode counts as unset (inherit).
 export function resolveSelectedGrowthStandard(
   babyReference: string | null | undefined,
   familyDefault: string | null | undefined,
+  mode: DeploymentMode = 'selfhosted',
 ): { selected: GrowthStandard; source: GrowthStandardSource } {
-  const baby = normalizeGrowthStandard(babyReference);
+  const baby = normalizeGrowthStandard(babyReference, mode);
   if (baby) return { selected: baby, source: 'baby' };
-  const family = normalizeGrowthStandard(familyDefault);
+  const family = normalizeGrowthStandard(familyDefault, mode);
   if (family) return { selected: family, source: 'family' };
   return { selected: DEFAULT_GROWTH_STANDARD, source: 'default' };
 }
@@ -90,7 +114,8 @@ export function resolveGrowthStandard(
   babyReference: string | null | undefined,
   familyDefault: string | null | undefined,
   babyAgeMonths: number,
+  mode: DeploymentMode = 'selfhosted',
 ): { selected: GrowthStandard; source: GrowthStandardSource; effective: GrowthStandard } {
-  const resolved = resolveSelectedGrowthStandard(babyReference, familyDefault);
-  return { ...resolved, effective: effectiveGrowthStandard(resolved.selected, babyAgeMonths) };
+  const resolved = resolveSelectedGrowthStandard(babyReference, familyDefault, mode);
+  return { ...resolved, effective: effectiveGrowthStandard(resolved.selected, babyAgeMonths, mode) };
 }
